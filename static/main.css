@@ -68,6 +68,7 @@ details:open > summary.hide { display: none; }
 	}
 }
 .muted { color: #bbb; font-family: 'Titillium Web', sans-serif; font-size: 80%; }
+.btns { display: flex; justify-content: flex-end; gap: 1em; }
 .act-btns { display: inline-block; margin: 0 0; text-align: right; }
 .ubtn {
 	border: 1px #444 solid;

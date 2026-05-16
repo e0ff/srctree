@@ -125,6 +125,8 @@ fn commitHtml(f: *Frame, sha: []const u8, repo_name: []const u8, repo: Git.Repo)
     });
     const og_desc = allocPrint(f.alloc, "{f}", .{abx.Html{ .text = current.message }}) catch unreachable;
     var page = CommitPage.init(.{
+        .repo = .safe(repo_name),
+        .sha = .safe(current.sha.text().slice()),
         .meta_head = .{ .title = page_title, .open_graph = .{ .title = og_title, .desc = og_desc } },
         .body_header = .{ .nav = .{ .nav_buttons = &try Repos.navButtons(f) } },
         .repo_header = .{
