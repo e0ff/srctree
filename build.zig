@@ -95,7 +95,8 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
-    b.installArtifact(hooks);
+    const hook_artifact = b.addInstallArtifact(hooks, .{ .dest_sub_path = "hooks/update" });
+    b.getInstallStep().dependOn(&hook_artifact.step);
 
     const deploy = b.step("deploy", "insall exes & static files");
     const static_files = b.addInstallDirectory(.{
@@ -104,8 +105,7 @@ pub fn build(b: *std.Build) void {
         .install_subdir = "static",
     });
     const deploy_exe = b.addInstallArtifact(exe, .{});
-    const deploy_hooks = b.addInstallArtifact(hooks, .{});
     deploy.dependOn(&deploy_exe.step);
-    deploy.dependOn(&deploy_hooks.step);
+    deploy.dependOn(&hook_artifact.step);
     deploy.dependOn(&static_files.step);
 }

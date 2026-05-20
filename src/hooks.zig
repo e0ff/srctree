@@ -11,6 +11,13 @@ pub fn main(init: std.process.Init) !u8 {
 
     const env: Env = try .init(&init.minimal.environ, a);
 
+    if (env.datadir) |datadir| {
+        try types.init(
+            try std.Io.Dir.cwd().createDirPathOpen(io, datadir, .{ .open_options = .{ .iterate = true } }),
+            io,
+        );
+    }
+
     if (endsWith(u8, arg0, "pre-receive")) {
         // https://git-scm.com/docs/githooks#pre-receives
         preReceive(stdin, &env) catch return 1;
@@ -143,6 +150,7 @@ pub fn update(
         .unknown => return error.UnsupportedEnv,
         .git => return error.NotImplemented,
         .http => {
+            if (env.datadir == null) return error.UnsupportedEnv;
             if (!eql(u8, old_oid, &@as([32]u8, @splat(0)))) {
                 if (false and true) return error.TargetExists;
             }
@@ -215,17 +223,26 @@ const Env = struct {
     method: PushMethod,
     host: ?[]const u8,
     repo: ?[]const u8,
+    datadir: ?[]const u8,
 
     pub fn init(env: *const std.process.Environ, a: Allocator) !Env {
         var map = try env.createMap(a);
         var method: PushMethod = .unknown;
         const host: ?[]const u8 = map.get("SRCTREE_HOST");
         const repo: ?[]const u8 = map.get("SRCTREE_REPO");
+        var datadir: ?[]const u8 = map.get("SRCTREE_DIRECT_DATADIR");
 
         if (map.contains("SRCTREE_HTTP")) {
             method = .http;
         } else if (map.contains("SSH_CLIENT")) {
             method = .ssh;
+        }
+
+        if (map.contains("SRCTREE_DIRECT_ENABLED")) {
+            if (!eql(u8, map.get("SRCTREE_DIRECT_ENABLED").?, "true"))
+                datadir = null;
+        } else {
+            datadir = null;
         }
 
         var list: StringArrayHashMap(void) = .empty;
@@ -249,6 +266,7 @@ const Env = struct {
             .method = method,
             .repo = repo,
             .host = host,
+            .datadir = datadir,
         };
     }
 

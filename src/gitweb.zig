@@ -49,6 +49,8 @@ fn prepareEnv(f: *Frame) !std.process.Environ.Map {
     try map.put("QUERY_STRING", "");
     try map.put("REMOTE_USER", "anon");
 
+    try map.put("SRCTREE_DIRECT_ENABLED", "true");
+    try map.put("SRCTREE_DIRECT_DATADIR", "data/");
     try map.put("SRCTREE_HTTP", "true");
     try map.put("SRCTREE_HOST", try (f.request.host orelse return error.DataMissing).valid());
     try map.put("SRCTREE_REPO", rd.name);
