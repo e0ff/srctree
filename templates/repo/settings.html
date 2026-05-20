@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <Build MetaHead _meta_head.html />
+  </head>
+  <body>
+    <Build BodyHeader _body_header.html />
+    <content class="fw">
+        <form class="pretty" action="new" method="POST">
+          <context><Name /></context>
+          <input name="title" placeholder="Issue Title" />
+          <buttons>
+            <div><button name="remote">Reference Remote Issue</button></div>
+            <div>
+              <button name="preview" value=t>Preview</button>
+              <button name="submit" value=t>Submit</button>
+            </div>
+          </buttons>
+        </form>
+    </content>
+  </body>
+</html>
