@@ -27,7 +27,7 @@ fn gitHttp(f: *Frame) Error!void {
     return gitReceivePack(f);
 }
 
-fn prepareEnv(f: *Frame) !std.process.Environ.Map {
+fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
     const method = @tagName(f.request.method);
 
@@ -70,43 +70,47 @@ fn prepareEnv(f: *Frame) !std.process.Environ.Map {
         try map.put("CONTENT_TYPE", "");
     }
 
-    f.uri.reset();
-    _ = f.uri.first();
-    _ = f.uri.next();
-    const path_tr = allocPrint(f.alloc, "repos/{s}/{s}", .{ rd.name, f.uri.rest() }) catch unreachable;
+    var uri = f.uri;
+    uri.reset();
+    _ = uri.first();
+    _ = uri.next();
+    const path_tr = allocPrint(f.alloc, "repos/{s}/{s}", .{ rd.name, uri.rest() }) catch unreachable;
     log.warn("pathtr {s}", .{path_tr});
     try map.put("PATH_TRANSLATED", path_tr);
 
     return map;
 }
 
-fn gitReceivePack(f: *Frame) Error!void {
-    var gz_encoding = false;
-    var map = try prepareEnv(f);
-    defer map.deinit();
-
+fn gzipEncoded(f: *const Frame) bool {
     switch (f.downstream.gateway) {
         .zwsgi => |z| {
             for (z.vars.items) |vars| {
                 log.info("each {s} {s}", .{ vars.key, vars.val });
                 if (eql(u8, vars.key, "HTTP_CONTENT_ENCODING")) {
                     if (eql(u8, vars.val, "gzip")) {
-                        gz_encoding = true;
+                        return true;
                     } else {
                         log.err("unexpected encoding", .{});
+                        return false;
                     }
                 }
             }
         },
         else => @panic("not implemented"),
     }
+    return false;
+}
+
+fn spawn(f: *const Frame) !std.process.Child {
+    var map = try prepareEnv(f);
+    defer map.deinit();
 
     var itr = map.iterator();
     while (itr.next()) |next| {
         std.debug.print("next {s} {s}\n", .{ next.key_ptr.*, next.value_ptr.* });
     }
 
-    var child = std.process.spawn(f.io, .{
+    return std.process.spawn(f.io, .{
         .argv = &.{ "git", "http-backend" },
         .stdin = .pipe,
         .stdout = .pipe,
@@ -116,7 +120,11 @@ fn gitReceivePack(f: *Frame) Error!void {
         log.err("Unable to spawn for gitweb {}", .{err});
         return error.ServerFault;
     };
+}
 
+fn gitReceivePack(f: *Frame) Error!void {
+    const gz_encoding = gzipEncoded(f);
+    var child = try spawn(f);
     const stdin = child.stdin orelse return error.ServerFault;
     if (f.request.data.post) |pd| {
         var w_b: [6400]u8 = undefined; // This is what I saw while debugging
@@ -168,38 +176,8 @@ fn gitReceivePack(f: *Frame) Error!void {
 }
 
 fn gitUploadPack(f: *Frame) Error!void {
-    var gz_encoding = false;
-    var map = try prepareEnv(f);
-    defer map.deinit();
-    try map.put("CONTENT_TYPE", "application/x-git-upload-pack-request");
-
-    switch (f.downstream.gateway) {
-        .zwsgi => |z| {
-            for (z.vars.items) |vars| {
-                log.info("each {s} {s}", .{ vars.key, vars.val });
-                if (eql(u8, vars.key, "HTTP_CONTENT_ENCODING")) {
-                    if (eql(u8, vars.val, "gzip")) {
-                        gz_encoding = true;
-                    } else {
-                        log.err("unexpected encoding", .{});
-                    }
-                }
-            }
-        },
-        else => @panic("not implemented"),
-    }
-
-    var child = std.process.spawn(f.io, .{
-        .argv = &.{ "git", "http-backend" },
-        .stdin = .pipe,
-        .stdout = .pipe,
-        .stderr = .pipe,
-        .environ_map = &map,
-    }) catch |err| {
-        log.err("Unable to spawn for gitweb {}", .{err});
-        return error.ServerFault;
-    };
-
+    const gz_encoding = gzipEncoded(f);
+    var child = try spawn(f);
     if (f.request.data.post) |pd| {
         const stdin = child.stdin orelse return error.ServerFault;
         var w_b: [6400]u8 = undefined; // This is what I saw while debugging
@@ -271,6 +249,8 @@ const startsWith = std.mem.startsWith;
 const log = std.log.scoped(.gitweb);
 const allocPrint = std.fmt.allocPrint;
 const RouteData = @import("endpoints/repos.zig").RouteData;
+
+const main = @import("main.zig");
 
 const verse = @import("verse");
 const Frame = verse.Frame;
