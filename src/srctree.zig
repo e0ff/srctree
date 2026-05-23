@@ -113,7 +113,7 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                     return Router.defaultResponse(.not_found);
                 }
 
-                if ((bwsr.name == .chrome or bwsr.name == .edge) and bwsr.version <= 137) {
+                if ((bwsr.name == .chrome or bwsr.name == .edge) and bwsr.version <= 137 and bwsr.version >= 130) {
                     log.err("Dropping malicious traffic", .{});
                     fr.dumpDebugData(.{});
                     ua.dumpValidation(fr.request);
