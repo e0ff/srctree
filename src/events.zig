@@ -6,7 +6,7 @@ pub const Event = enum {
 
 pub fn newComment(repo: []const u8, idx: usize, url: []const u8, msg: Message, io: Io) !void {
     if (comptime builtin.is_test) return;
-    const notifications = root.global_config.notifications orelse return;
+    const notifications = @import("Config.zig").global.notifications orelse return;
     if (!notifications.enabled) return;
 
     inline for (@typeInfo(Ack.email).@"struct".decls) |dcl| {
@@ -18,12 +18,12 @@ pub fn newComment(repo: []const u8, idx: usize, url: []const u8, msg: Message, i
 pub const Ack = struct {
     pub const email = struct {
         pub fn newComment(repo: []const u8, idx: usize, url: []const u8, msg: Message, io: Io) !void {
-            const sender = if (root.global_config.notifications) |note|
+            const sender = if (@import("Config.zig").global.notifications) |note|
                 note.sender orelse "\"srctree\" <srctree@gr.ht>"
             else
                 "\"srctree\" <srctree@gr.ht>";
 
-            const receiver = if (root.global_config.notifications) |note|
+            const receiver = if (@import("Config.zig").global.notifications) |note|
                 note.receiver orelse "\"srctree\" <srcadmin@gr.ht>"
             else
                 "\"srctree\" <srcadmin@gr.ht>";
@@ -52,7 +52,6 @@ pub const Ack = struct {
 };
 
 const std = @import("std");
-const root = @import("root");
 const builtin = @import("builtin");
 
 const Io = std.Io;

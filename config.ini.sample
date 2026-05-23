@@ -30,3 +30,4 @@ remove_on_start = true
 [git]
 push_enabled = false
 pull_enabled = true
+auto_create_enabled = false

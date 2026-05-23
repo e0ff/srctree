@@ -46,65 +46,9 @@ const Options = struct {
     source_path: []const u8,
 };
 
-pub const SrcConfig = struct {
-    server: ?SrcConfig.Server,
-    owner: ?Owner,
-    repos: ?SrcConfig.Repos,
-    agent: ?Agent,
-    notifications: ?Notifications,
-    git: ?Git,
+pub const SrcConfig = @import("Config.zig");
 
-    pub const Server = struct {
-        sock: ?[]const u8,
-        remove_on_start: bool = false,
-    };
-
-    pub const Owner = struct {
-        email: ?[]const u8,
-        tz: ?[]const u8,
-    };
-
-    pub const Repos = struct {
-        /// Directory of public repos
-        dir: ?[]const u8,
-        /// Directory of private repos
-        private_dir: ?[]const u8,
-        /// List of repos that should be hidden
-        private_repos: ?[]const u8,
-        unlisted_repos: ?[]const u8,
-    };
-
-    pub const Agent = struct {
-        enabled: bool = false,
-        skip_repos: ?[]const u8 = null,
-        upstream_push: bool = false,
-        upstream_pull: bool = false,
-        downstream_push: bool = false,
-        downstream_pull: bool = false,
-    };
-
-    pub const Notifications = struct {
-        enabled: bool = false,
-        sender: ?[]const u8 = null,
-        receiver: ?[]const u8 = null,
-    };
-
-    pub const Git = struct {
-        push_enabled: bool = false,
-        pull_enabled: bool = true,
-    };
-
-    pub const empty: SrcConfig = .{
-        .server = null,
-        .owner = null,
-        .repos = null,
-        .agent = null,
-        .notifications = null,
-        .git = null,
-    };
-};
-
-pub var global_config: SrcConfig = .empty;
+//pub var global_config = &SrcConfig.global;
 pub var config_ini: Ini.Config(SrcConfig) = .{ .ini = .empty };
 
 const Auth = @import("Auth.zig");
@@ -150,11 +94,11 @@ pub fn main(init: std.process.Init) !void {
         cfg_data = try a.alloc(u8, len);
         var config_reader = cf.reader(io, cfg_data);
         config_ini = try Ini.Config(SrcConfig).init(&config_reader.interface, a);
-        global_config = try config_ini.resolve();
+        SrcConfig.global = try config_ini.resolve();
     }
     defer config_ini.raze(a);
 
-    if (global_config.owner) |owner| {
+    if (SrcConfig.global.owner) |owner| {
         if (owner.email) |email| {
             log.debug("{s}", .{email});
         }
@@ -166,7 +110,7 @@ pub fn main(init: std.process.Init) !void {
     const cache = Cache.init(a);
     defer cache.raze();
 
-    if (global_config.server) |srv| {
+    if (SrcConfig.global.server) |srv| {
         if (srv.remove_on_start) {
             Io.Dir.cwd().deleteFile(io, "./srctree.sock") catch |err| switch (err) {
                 error.FileNotFound => {},
@@ -176,16 +120,16 @@ pub fn main(init: std.process.Init) !void {
     }
 
     var agent: Repos.Agent = .init(.{
-        .enabled = global_config.agent.?.enabled,
+        .enabled = SrcConfig.global.agent.?.enabled,
         .upstream = .{
-            .push = global_config.agent.?.upstream_push,
-            .pull = global_config.agent.?.upstream_pull,
+            .push = SrcConfig.global.agent.?.upstream_push,
+            .pull = SrcConfig.global.agent.?.upstream_pull,
         },
         .downstream = .{
-            .push = global_config.agent.?.downstream_push,
-            .pull = global_config.agent.?.downstream_pull,
+            .push = SrcConfig.global.agent.?.downstream_push,
+            .pull = SrcConfig.global.agent.?.downstream_pull,
         },
-        .skips = global_config.agent.?.skip_repos,
+        .skips = SrcConfig.global.agent.?.skip_repos,
     }, io);
     try agent.startThread();
     defer agent.joinThread();
@@ -199,7 +143,7 @@ pub fn main(init: std.process.Init) !void {
         .base = auth.provider(),
     };
 
-    if (global_config.server) |srvcfg| {
+    if (SrcConfig.global.server) |srvcfg| {
         if (srvcfg.sock) |sock| {
             std.debug.print("sock: {s}\n", .{sock});
         }
