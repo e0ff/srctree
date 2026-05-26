@@ -180,7 +180,7 @@ pub fn updatePatchView(f: *Frame) ?PatchViewMode {
     return null;
 }
 
-/// , or error when unknown
+/// or error when unknown
 pub fn updateFetchPatchView(f: *Frame) error{Unspecified}!PatchViewMode {
     if (updatePatchView(f)) |q| {
         return q;
@@ -194,16 +194,22 @@ pub fn updateFetchPatchView(f: *Frame) error{Unspecified}!PatchViewMode {
     return error.Unspecified;
 }
 
+fn useGitProto(f: *const Frame) bool {
+    if (f.request.user_agent) |ua| switch (ua.agent) {
+        .script => |script| return script.name == .git or script.name == .zig,
+        .bot => {},
+        .browser => {},
+        .unknown => {},
+    };
+    return false;
+}
+
 pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
     const rd = RouteData.init(f.uri) orelse return list;
 
     const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
     if (rd.exists(vis, f.io)) {
-        if (f.request.user_agent) |ua| {
-            if (ua.agent == .script and ua.agent.script.name == .git) {
-                return gitweb.router(f);
-            }
-        }
+        if (useGitProto(f)) return gitweb.router(f);
 
         if (repos.open(rd.name, vis, f.io)) |repo_| b: {
             var repo = repo_ orelse break :b;
@@ -234,7 +240,10 @@ pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
         }
         return treeBlob;
         //return Router.defaultRouter(f, &routes);
+    } else {
+        if (useGitProto(f)) return gitweb.router(f);
     }
+
     return error.Unrouteable;
 }
 

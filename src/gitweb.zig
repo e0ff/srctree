@@ -5,11 +5,11 @@ pub const endpoints = [_]Router.Match{
         Router.ALL("", gitHttp),
         Router.ALL("refs", gitHttp),
     }),
-    Router.ALL("git-upload-pack", gitUploadPack),
+    Router.ALL("git-upload-pack", uploadPack),
 };
 
 pub fn router(ctx: *Frame) Router.RoutingError!Router.BuildFn {
-    std.debug.print("gitweb router {s}\n{any}, {any} \n", .{ ctx.uri.peek().?, ctx.uri, ctx.request.method });
+    std.debug.print("gitweb router {any} {s}\n", .{ ctx.request.method, ctx.uri.peek().? });
     return gitHttp;
 }
 
@@ -19,12 +19,10 @@ pub fn router(ctx: *Frame) Router.RoutingError!Router.BuildFn {
 
 fn gitHttp(f: *Frame) Error!void {
     const qstr = f.request.data.query.bytes;
-    if (eql(u8, qstr, "service=git-upload-pack")) {
-        return gitUploadPack(f);
-    } else if (eql(u8, qstr, "service=git-receive-pack")) {
-        return gitReceivePack(f);
-    }
-    return gitReceivePack(f);
+    if (eql(u8, qstr, "service=git-receive-pack"))
+        return receivePack(f);
+
+    return uploadPack(f);
 }
 
 fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
@@ -47,7 +45,10 @@ fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
     try map.put("REMOTE_ADDR", f.request.remote_addr);
     try map.put("REQUEST_METHOD", method);
     try map.put("QUERY_STRING", "");
-    try map.put("REMOTE_USER", "anon");
+
+    const username = if (f.user) |usr| usr.username orelse "anon" else "anon";
+
+    try map.put("REMOTE_USER", username);
 
     try map.put("SRCTREE_DIRECT_ENABLED", "true");
     try map.put("SRCTREE_DIRECT_DATADIR", "data/");
@@ -85,14 +86,13 @@ fn gzipEncoded(f: *const Frame) bool {
     switch (f.downstream.gateway) {
         .zwsgi => |z| {
             for (z.vars.items) |vars| {
-                log.info("each {s} {s}", .{ vars.key, vars.val });
+                log.debug("each {s} {s}", .{ vars.key, vars.val });
                 if (eql(u8, vars.key, "HTTP_CONTENT_ENCODING")) {
-                    if (eql(u8, vars.val, "gzip")) {
+                    if (eql(u8, vars.val, "gzip"))
                         return true;
-                    } else {
-                        log.err("unexpected encoding", .{});
-                        return false;
-                    }
+                    log.err("unexpected encoding", .{});
+
+                    return false;
                 }
             }
         },
@@ -104,11 +104,6 @@ fn gzipEncoded(f: *const Frame) bool {
 fn spawn(f: *const Frame) !std.process.Child {
     var map = try prepareEnv(f);
     defer map.deinit();
-
-    var itr = map.iterator();
-    while (itr.next()) |next| {
-        std.debug.print("next {s} {s}\n", .{ next.key_ptr.*, next.value_ptr.* });
-    }
 
     return std.process.spawn(f.io, .{
         .argv = &.{ "git", "http-backend" },
@@ -122,7 +117,32 @@ fn spawn(f: *const Frame) !std.process.Child {
     };
 }
 
-fn gitReceivePack(f: *Frame) Error!void {
+fn receivePack(f: *Frame) Error!void {
+    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    if (!rd.exists(.all, f.io)) {
+        if (f.user) |_| return try receivePackInternal(f);
+        return error.Unrouteable;
+    }
+    return try receivePackExternal(f);
+}
+
+fn autoCreateSkel(f: *Frame) Error!void {
+    f.downstream.writer.writeAll("HTTP/1.1 200 OK\r\n" ++
+        "Expires: Fri, 01 Jan 1980 00:00:00 GMT\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Cache-Control: no-cache, max-age=0, must-revalidate\r\n" ++
+        "Content-Type: application/x-git-receive-pack-advertisement\r\n" ++
+        "\r\n") catch
+        return log.err("unable to start headers for fake repo", .{});
+
+    try git.protocol.announce(.default, f.downstream.writer);
+}
+
+fn receivePackInternal(f: *Frame) Error!void {
+    return try autoCreateSkel(f);
+}
+
+fn receivePackExternal(f: *Frame) Error!void {
     const gz_encoding = gzipEncoded(f);
     var child = try spawn(f);
     const stdin = child.stdin orelse return error.ServerFault;
@@ -149,33 +169,35 @@ fn gitReceivePack(f: *Frame) Error!void {
     var r_b: [6400]u8 = undefined; // This is what I saw while debugging
     var stdout_r = stdout.reader(f.io, &r_b);
 
+    // we just guess and assume it'll return 200
+    // checking would be better
     f.downstream.writer.writeAll("HTTP/1.1 200 OK\r\n") catch
         return debugStderr("unable to start headers", &child, f.io);
 
-    _ = stdout_r.interface.streamRemaining(f.downstream.writer) catch |e| switch (e) {
-        else => {
-            std.debug.print("{} buffered {s}\n", .{ stdout_r.interface.end, stdout_r.interface.buffer });
-            return debugStderr("unable to stream body", &child, f.io);
-        },
-    };
-    std.debug.print("git recv 5\n", .{});
+    _ = stdout_r.interface.streamRemaining(f.downstream.writer) catch
+        return debugStderr("unable to stream body", &child, f.io);
+
     if (child.wait(f.io)) |chld| {
-        if (chld.exited != 0) {
-            return debugStderr("unable to stream body", &child, f.io);
-        } else {
-            log.info("child {}", .{chld});
-        }
+        log.debug("child {}", .{chld});
+        if (chld.exited != 0) return debugStderr("unable to stream body", &child, f.io);
     } else |err| {
         log.err("Error waiting for child {}", .{err});
         return error.ServerFault;
     }
-    stdout_r.interface.fillMore() catch {};
-    std.debug.print("git recv 6 {}\n", .{stdout_r.interface.bufferedLen()});
     f.downstream.writer.flush() catch log.err("final flush failed", .{});
-    return;
 }
 
-fn gitUploadPack(f: *Frame) Error!void {
+fn uploadPack(f: *Frame) Error!void {
+    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    if (!rd.exists(.all, f.io) and f.user != null) {
+        return try uploadPackInternal(f);
+    }
+    return try uploadPackExternal(f);
+}
+
+const uploadPackExternal = uploadPackInternal;
+
+fn uploadPackInternal(f: *Frame) Error!void {
     const gz_encoding = gzipEncoded(f);
     var child = try spawn(f);
     if (f.request.data.post) |pd| {
@@ -190,7 +212,10 @@ fn gitUploadPack(f: *Frame) Error!void {
                 log.err("gz stream error {}", .{err});
                 return error.ServerFault;
             };
-        } else try stdin_w.interface.writeAll(pd.bytes);
+        } else {
+            std.debug.print("{s}\n", .{pd.bytes[0..@min(2000, pd.bytes.len)]});
+            try stdin_w.interface.writeAll(pd.bytes);
+        }
         try stdin_w.interface.flush();
     }
     if (child.stdin) |stdin| stdin.close(f.io);
@@ -199,32 +224,25 @@ fn gitUploadPack(f: *Frame) Error!void {
     const stdout = child.stdout orelse return error.ServerFault;
     var r_b: [6400]u8 = undefined; // This is what I saw while debugging
     var stdout_r = stdout.reader(f.io, &r_b);
-    stdout_r.interface.fillMore() catch
+
+    // we just guess and assume it'll return 200
+    // checking would be better
+    f.downstream.writer.writeAll("HTTP/1.1 200 OK\r\n") catch
         return debugStderr("unable to start headers", &child, f.io);
 
-    if (stdout_r.interface.bufferedLen() > 0) {
-        f.downstream.writer.writeAll("HTTP/1.1 200 OK\r\n") catch
-            return debugStderr("unable to start headers", &child, f.io);
-    }
-
-    while (stdout_r.interface.stream(f.downstream.writer, .limited(0x800000))) |_| {
-        //
-    } else |err| switch (err) {
-        error.EndOfStream => {},
-        else => return debugStderr("unable to stream body", &child, f.io),
-    }
-    f.downstream.writer.flush() catch log.err("final flush failed", .{});
+    _ = stdout_r.interface.streamRemaining(f.downstream.writer) catch
+        return debugStderr("unable to stream body", &child, f.io);
 
     if (child.wait(f.io)) |chld| {
+        log.info("child {}", .{chld});
         if (chld.exited != 0) {
             return debugStderr("unable to stream body", &child, f.io);
-        } else {
-            log.info("child {}", .{chld});
         }
     } else |err| {
         log.err("Error waiting for child {}", .{err});
         return error.ServerFault;
     }
+    f.downstream.writer.flush() catch log.err("final flush failed", .{});
 }
 
 fn debugStderr(comptime msg: []const u8, child: *std.process.Child, io: std.Io) !void {

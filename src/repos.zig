@@ -33,7 +33,7 @@ pub const Visibility = enum {
         pub const private_only: Select = .{ .private = true };
         pub const secret_only: Select = .{ .secret = true };
         pub const all: Select = .{ .public = true, .unlisted = true, .private = true, .secret = true };
-        pub const default: Select = .{ .public = true };
+        pub const default: Select = .public_only;
 
         public: bool = false,
         unlisted: bool = false,

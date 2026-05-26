@@ -1,3 +1,5 @@
+pub const protocol = @import("git/protocol.zig");
+
 pub const Actor = @import("git/actor.zig");
 pub const Agent = @import("git/agent.zig");
 pub const Blob = @import("git/blob.zig");
@@ -67,6 +69,7 @@ pub fn commitishRepo(rev: []const u8, repo: Repo) bool {
 
 test {
     std.testing.refAllDecls(@This());
+    _ = &protocol;
     _ = &Actor;
     _ = &Agent;
     _ = &Blob;
