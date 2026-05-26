@@ -143,23 +143,18 @@ fn receivePackInternal(f: *Frame) Error!void {
 }
 
 fn receivePackExternal(f: *Frame) Error!void {
-    const gz_encoding = gzipEncoded(f);
+    const gz_encoded = gzipEncoded(f);
     var child = try spawn(f);
     const stdin = child.stdin orelse return error.ServerFault;
     if (f.request.data.post) |pd| {
+        var post_bytes: Reader = .fixed(pd.bytes);
+        var gz_b: [std.compress.flate.max_window_len]u8 = undefined;
+        var gzip: std.compress.flate.Decompress = .init(&post_bytes, .gzip, &gz_b);
+        const reader: *Reader = if (gz_encoded) &post_bytes else &gzip.reader;
+
         var w_b: [6400]u8 = undefined; // This is what I saw while debugging
         var stdin_w = stdin.writer(f.io, &w_b);
-        if (gz_encoding) {
-            var post_reader: Reader = .fixed(pd.bytes);
-            var gz_b: [std.compress.flate.max_window_len]u8 = undefined;
-            var gzip: std.compress.flate.Decompress = .init(&post_reader, .gzip, &gz_b);
-            _ = gzip.reader.streamRemaining(&stdin_w.interface) catch |err| {
-                log.err("gz stream error {}", .{err});
-                return error.ServerFault;
-            };
-        } else {
-            try stdin_w.interface.writeAll(pd.bytes);
-        }
+        _ = reader.streamRemaining(&stdin_w.interface) catch unreachable;
         try stdin_w.interface.flush();
     }
     child.stdin = null;
@@ -198,24 +193,18 @@ fn uploadPack(f: *Frame) Error!void {
 const uploadPackExternal = uploadPackInternal;
 
 fn uploadPackInternal(f: *Frame) Error!void {
-    const gz_encoding = gzipEncoded(f);
+    const gz_encoded = gzipEncoded(f);
     var child = try spawn(f);
     if (f.request.data.post) |pd| {
         const stdin = child.stdin orelse return error.ServerFault;
+        var post_bytes: Reader = .fixed(pd.bytes);
+        var gz_b: [std.compress.flate.max_window_len]u8 = undefined;
+        var gzip: std.compress.flate.Decompress = .init(&post_bytes, .gzip, &gz_b);
+        const reader: *Reader = if (gz_encoded) &post_bytes else &gzip.reader;
+
         var w_b: [6400]u8 = undefined; // This is what I saw while debugging
         var stdin_w = stdin.writer(f.io, &w_b);
-        if (gz_encoding) {
-            var post_reader: Reader = .fixed(pd.bytes);
-            var gz_b: [std.compress.flate.max_window_len]u8 = undefined;
-            var gzip: std.compress.flate.Decompress = .init(&post_reader, .gzip, &gz_b);
-            _ = gzip.reader.streamRemaining(&stdin_w.interface) catch |err| {
-                log.err("gz stream error {}", .{err});
-                return error.ServerFault;
-            };
-        } else {
-            std.debug.print("{s}\n", .{pd.bytes[0..@min(2000, pd.bytes.len)]});
-            try stdin_w.interface.writeAll(pd.bytes);
-        }
+        _ = reader.streamRemaining(&stdin_w.interface) catch unreachable;
         try stdin_w.interface.flush();
     }
     if (child.stdin) |stdin| stdin.close(f.io);
