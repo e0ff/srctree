@@ -135,7 +135,7 @@ fn autoCreateSkel(f: *Frame) Error!void {
         "\r\n") catch
         return log.err("unable to start headers for fake repo", .{});
 
-    try git.protocol.announce(.default, f.downstream.writer);
+    try git.protocol.announceFake(.receive, f.downstream.writer);
 }
 
 fn receivePackInternal(f: *Frame) Error!void {

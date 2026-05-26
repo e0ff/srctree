@@ -8,13 +8,12 @@ pub const PktLine = struct {
     }
 
     pub fn format(pkt: PktLine, w: *std.Io.Writer) !void {
-        _ = pkt;
-        _ = w;
-        comptime unreachable;
+        std.debug.assert(pkt.bytes.len != 0);
+        try w.print("{x:0>4}", .{pkt.bytes.len + 4});
+        try w.writeAll(pkt.bytes);
     }
 };
 
-const header = "001f# service=git-receive-pack\n";
 const flush = "0000";
 
 pub const Caps = struct {
@@ -29,7 +28,51 @@ pub const Caps = struct {
     @"object-format": ?[]const u8,
     agent: ?[]const u8,
 
-    pub const default: Caps = .{
+    multi_ack: bool,
+    @"thin-pack": bool,
+    @"side-band": bool,
+    shallow: bool,
+    @"deepen-since": bool,
+    @"deepen-not": bool,
+    @"deepen-relative": bool,
+    @"no-progress": bool,
+    @"include-tag": bool,
+    multi_ack_detailed: bool,
+    @"no-done": bool,
+
+    //symref=HEAD:refs/heads/main
+    //object-format=sha1
+    //agent=git/2.52.0-Linux
+
+    pub const default: Caps = receive;
+
+    pub const upload: Caps = .{
+        .@"report-status-v2" = true,
+        .@"ofs-delta" = true,
+        .multi_ack = true,
+        .@"thin-pack" = true,
+        .@"side-band" = true,
+        .shallow = true,
+        .@"deepen-since" = true,
+        .@"deepen-not" = true,
+        .@"deepen-relative" = true,
+        .@"no-progress" = true,
+        .@"include-tag" = true,
+        .multi_ack_detailed = true,
+        .@"no-done" = true,
+
+        .@"report-status" = false,
+        .@"delete-refs" = false,
+        .@"side-band-64k" = false,
+        .quiet = false,
+        .atomic = false,
+        .@"push-options" = false,
+
+        .@"object-format" = "sha1",
+        .agent = "srctree/0.0.0",
+    };
+
+    pub const receive: Caps = .{
         .@"report-status" = true,
         .@"report-status-v2" = true,
         .@"delete-refs" = true,
@@ -38,6 +81,19 @@ pub const Caps = struct {
         .atomic = true,
         .@"ofs-delta" = true,
         .@"push-options" = true,
+
+        .multi_ack = false,
+        .@"thin-pack" = false,
+        .@"side-band" = false,
+        .shallow = false,
+        .@"deepen-since" = false,
+        .@"deepen-not" = false,
+        .@"deepen-relative" = false,
+        .@"no-progress" = false,
+        .@"include-tag" = false,
+        .multi_ack_detailed = false,
+        .@"no-done" = false,
+
         .@"object-format" = "sha1",
         .agent = "srctree/0.0.0",
     };
@@ -53,7 +109,7 @@ pub const Caps = struct {
     }
 };
 
-pub fn announce(c: Caps, w: *std.Io.Writer) !void {
+pub fn announce(header: []const u8, c: Caps, w: *std.Io.Writer) !void {
     try w.writeAll(header);
     try w.writeAll(flush);
 
@@ -68,10 +124,20 @@ pub fn announce(c: Caps, w: *std.Io.Writer) !void {
     try w.writeAll(flush);
 }
 
+pub fn announceFiltered(c: Caps, w: *std.Io.Writer) !void {
+    const header = "001e# service=git-upload-pack\n";
+    try announce(header, c, w);
+}
+
+pub fn announceFake(c: Caps, w: *std.Io.Writer) !void {
+    const header = "001f# service=git-receive-pack\n";
+    try announce(header, c, w);
+}
+
 test announce {
     var b: [2048]u8 = undefined;
     var w: std.Io.Writer = .fixed(&b);
-    try announce(.default, &w);
+    try announceFake(.default, &w);
 
     const expected = [_]u8{
         0x30, 0x30, 0x31, 0x66, 0x23, 0x20, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x3D, 0x67, 0x69,
