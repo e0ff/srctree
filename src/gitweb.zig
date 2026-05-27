@@ -150,7 +150,7 @@ fn receivePackExternal(f: *Frame) Error!void {
         var post_bytes: Reader = .fixed(pd.bytes);
         var gz_b: [std.compress.flate.max_window_len]u8 = undefined;
         var gzip: std.compress.flate.Decompress = .init(&post_bytes, .gzip, &gz_b);
-        const reader: *Reader = if (gz_encoded) &post_bytes else &gzip.reader;
+        const reader: *Reader = if (gz_encoded) &gzip.reader else &post_bytes;
 
         var w_b: [6400]u8 = undefined; // This is what I saw while debugging
         var stdin_w = stdin.writer(f.io, &w_b);
@@ -190,9 +190,9 @@ fn uploadPack(f: *Frame) Error!void {
     return try uploadPackExternal(f);
 }
 
-const uploadPackExternal = uploadPackInternal;
+const uploadPackInternal = uploadPackExternal;
 
-fn uploadPackInternal(f: *Frame) Error!void {
+fn uploadPackExternal(f: *Frame) Error!void {
     const gz_encoded = gzipEncoded(f);
     var child = try spawn(f);
     if (f.request.data.post) |pd| {
@@ -200,7 +200,7 @@ fn uploadPackInternal(f: *Frame) Error!void {
         var post_bytes: Reader = .fixed(pd.bytes);
         var gz_b: [std.compress.flate.max_window_len]u8 = undefined;
         var gzip: std.compress.flate.Decompress = .init(&post_bytes, .gzip, &gz_b);
-        const reader: *Reader = if (gz_encoded) &post_bytes else &gzip.reader;
+        const reader: *Reader = if (gz_encoded) &gzip.reader else &post_bytes;
 
         var w_b: [6400]u8 = undefined; // This is what I saw while debugging
         var stdin_w = stdin.writer(f.io, &w_b);

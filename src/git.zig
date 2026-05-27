@@ -48,6 +48,14 @@ pub const Ref = union(enum) {
 /// - [ ] ^-
 /// - [ ] ^!
 ///
+/// order from git fetch
+///
+/// refs/refs/heads/magic-branch
+/// refs/tags/refs/heads/magic-branch
+/// refs/heads/refs/heads/magic-branch
+/// refs/remotes/refs/heads/magic-branch
+/// refs/remotes/refs/heads/magic-branch/HEAD
+/// refs/tags/
 ///
 /// Warning only has support for sha currently
 pub fn commitish(rev: []const u8) bool {
