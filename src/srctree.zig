@@ -169,34 +169,23 @@ fn builder(fr: *Frame, call: BuildFn) void {
     fr.response_data.clone(S.BodyHeaderHtml, fr.alloc, bh) catch {};
     return call(fr) catch |err| switch (err) {
         error.InvalidURI => builder(fr, notFound), // TODO catch inline
-        error.WriteFailed => std.debug.print("Unexpected WriteFailure\n", .{}),
-        error.Unrouteable => {
-            std.debug.print("Unrouteable", .{});
-            //if (@errorReturnTrace()) |trace| {
-            //    std.debug.dumpStackTrace(trace);
-            //}
-        },
+        error.WriteFailed => log.err("Unexpected WriteFailure", .{}),
+        error.Unrouteable => log.err("Unrouteable", .{}),
         error.NotImplemented, error.Unknown => {
-            std.debug.print("Unexpected error '{}'\n", .{err});
+            log.err("Unexpected error '{}'", .{err});
             if (@import("builtin").mode == .Debug) unreachable;
             return fr.sendDefaultErrorPage(.internal_server_error);
         },
         error.ServerFault => {
-            std.debug.print("Server Fault\n", .{});
+            log.err("Server Fault", .{});
             return fr.sendDefaultErrorPage(.internal_server_error);
         },
-        error.OutOfMemory,
-        error.NoSpaceLeft,
-        => {
-            std.debug.print("Unexpected error '{}'", .{err});
+        error.OutOfMemory, error.NoSpaceLeft => {
+            log.err("Unexpected error '{}'", .{err});
             @panic("not implemented");
         },
-        error.Unauthenticated => {
-            return fr.sendDefaultErrorPage(.unauthorized);
-        },
-        error.Unauthorized => {
-            return fr.sendDefaultErrorPage(.forbidden);
-        },
+        error.Unauthenticated => return fr.sendDefaultErrorPage(.unauthorized),
+        error.Unauthorized => return fr.sendDefaultErrorPage(.forbidden),
         error.Abuse,
         error.DataInvalid,
         error.DataMissing,
