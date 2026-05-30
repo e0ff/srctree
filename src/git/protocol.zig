@@ -14,6 +14,19 @@ pub const PktLine = struct {
     }
 };
 
+pub const commands = struct {
+    pub const @"ls-refs" = struct {
+        // https://git-scm.com/docs/protocol-v2#_ls_refs
+        // caps
+        // .delimiter
+        // peel
+        // symrefs
+        // unborn
+        // ref-prefix
+        // flush
+    };
+};
+
 const flush = "0000";
 
 pub const Caps = struct {
