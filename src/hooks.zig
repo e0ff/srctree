@@ -9,6 +9,11 @@ pub fn main(init: std.process.Init) !u8 {
     var in_reader = stdin_f.reader(init.io, &sin_b);
     const stdin = &in_reader.interface;
 
+    var stdout_f: std.Io.File = .stdout();
+    var sout_b: [512]u8 = undefined;
+    var out_reader = stdout_f.writer(init.io, &sout_b);
+    const stdout = &out_reader.interface;
+
     const env: Env = try .init(&init.minimal.environ, a);
 
     if (env.datadir) |datadir| {
@@ -50,7 +55,7 @@ pub fn main(init: std.process.Init) !u8 {
                         return 1;
                     },
                     error.FSFault => unreachable,
-                    error.DeltaDoesNotExist, error.DisallowedTarget => {
+                    error.DeltaDoesNotExist => {
                         std.debug.print("error: Destination diff doesn't exist, or push isn't enabled for this repo/branch\n", .{});
                         return 1;
                     },
@@ -59,7 +64,7 @@ pub fn main(init: std.process.Init) !u8 {
         }
     } else if (endsWith(u8, arg0, "proc-receive")) {
         // https://git-scm.com/docs/githooks#proc-receive
-        procReceive(&env) catch return 1;
+        procReceive(stdin, stdout, &env) catch return 1;
     }
 
     return 0;
@@ -160,8 +165,6 @@ pub fn update(
                     return err;
                 };
                 _ = &delta;
-            } else {
-                return error.DisallowedTarget;
             }
         },
         .ssh => {},
@@ -193,20 +196,50 @@ pub fn postUpdate(_: *const Env) !void {
     // this hook.
 }
 
-pub fn procReceive(_: *const Env) !void {
-    // This hook is invoked by git-receive-pack[1]. If the server has set
-    // the multi-valued config variable receive.procReceiveRefs, and the
-    // commands sent to receive-pack have matching reference names, these
-    // commands will be executed by this hook, instead of by the internal
-    // execute_commands() function. This hook is responsible for updating
-    // the relevant references and reporting the results back to
-    // receive-pack.
+pub fn procReceive(stdin: *Reader, out: *Writer, _: *const Env) !void {
+    // ofs-delta
+    // push-cert=%s
+    // session-id=%s
+    // object-format=%s
+    // agent=%s
 
-    // This hook executes once for the receive operation. It takes no
-    // arguments, but uses a pkt-line format protocol to communicate with
-    // receive-pack to read commands, push-options and send results. In
-    // the following example for the protocol, the letter S stands for
-    // receive-pack and the letter H stands for this hook.
+    const header = try git.protocol.PktLine.read(stdin);
+    _ = header;
+    _ = try git.protocol.PktLine.read(stdin);
+    try out.print("{f}{f}", .{
+        git.protocol.PktLine{ .bytes = "version=1\x00push-options agent=srctree/0.0.0\n" },
+        git.protocol.PktLine{ .flush = {} },
+    });
+    try out.flush();
+
+    defer {
+        (git.protocol.PktLine{ .flush = {} }).format(out) catch {};
+        out.flush() catch {};
+    }
+    while (git.protocol.PktLine.read(stdin)) |line| switch (line) {
+        .flush => break,
+        .bytes => |bytes| {
+            var res_b: [512]u8 = undefined;
+            const res = try std.fmt.bufPrint(&res_b, "ok {s}\n", .{std.mem.trim(u8, bytes[std.mem.find(u8, bytes, "refs") orelse 0 ..], "\n ")});
+            try out.print(
+                "{f}{f}{f}",
+                //"{f}{f}{f}{f}{f}",
+                .{
+                    git.protocol.PktLine{ .bytes = res },
+                    git.protocol.PktLine{ .bytes = "option refname refs/diff/12/head" },
+                    //git.protocol.PktLine{ .bytes = "option old-oid 0000000000000000000000000000000000000000" },
+                    //git.protocol.PktLine{ .bytes = "option new-oid abacde74bbdaf6f3c74e83e83186b0c91d99b06d" },
+                    git.protocol.PktLine{ .bytes = "option fall-through" },
+                },
+            );
+            try out.flush();
+            //return;
+        },
+        else => return {},
+    } else |e| switch (e) {
+        error.EndOfStream => {},
+        else => return e,
+    }
 }
 
 const PushMethod = enum {
@@ -255,8 +288,6 @@ const Env = struct {
                     const opt = map.get(opt_str) orelse return error.ExpectedEnvMissing;
                     try list.put(a, opt, {});
                 }
-            } else {
-                if (method == .http) return error.HttpMissingOption;
             }
         }
 
@@ -291,6 +322,7 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const Reader = std.Io.Reader;
+const Writer = std.Io.Writer;
 const eql = std.mem.eql;
 const endsWith = std.mem.endsWith;
 const splitScalar = std.mem.splitScalar;
@@ -298,3 +330,4 @@ const cutPrefix = std.mem.cutPrefix;
 const types = @import("types.zig");
 const Delta = types.Delta;
 const StringArrayHashMap = std.StringArrayHashMapUnmanaged;
+const git = @import("git.zig");

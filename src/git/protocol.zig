@@ -1,16 +1,51 @@
 const protocol = @This();
 
-pub const PktLine = struct {
+pub const PktLine = union(enum) {
+    flush,
+    delimiter,
+    end,
     bytes: []const u8,
 
+    pub const Named = enum {
+        flush, // 0000
+        delimiter, // 0001
+        end, // 0002
+    };
+
     pub fn read(r: *std.Io.Reader) !PktLine {
-        return .{ .bytes = r.buffered() };
+        const size = std.fmt.parseInt(u16, try r.peek(4), 16) catch return error.Invalid;
+        switch (size) {
+            0 => {
+                r.toss(4);
+                return .flush;
+            },
+            1 => {
+                r.toss(4);
+                return .delimiter;
+            },
+            2 => {
+                r.toss(4);
+                return .end;
+            },
+            3, 4 => return error.Invalid,
+            else => {},
+        }
+        r.toss(4);
+
+        return .{ .bytes = try r.take(size -| 4) };
     }
 
     pub fn format(pkt: PktLine, w: *std.Io.Writer) !void {
-        std.debug.assert(pkt.bytes.len != 0);
-        try w.print("{x:0>4}", .{pkt.bytes.len + 4});
-        try w.writeAll(pkt.bytes);
+        switch (pkt) {
+            .flush => try w.writeAll("0000"),
+            .delimiter => try w.writeAll("0001"),
+            .end => try w.writeAll("0002"),
+            .bytes => |bytes| {
+                std.debug.assert(bytes.len != 0);
+                try w.print("{x:0>4}", .{bytes.len + 4});
+                try w.writeAll(bytes);
+            },
+        }
     }
 };
 
