@@ -61,6 +61,10 @@ const enabled_structs: struct {
 
 var storage_dir: Storage = undefined;
 
+pub fn currentPathAlloc(a: Allocator, io: Io) ![]u8 {
+    return storage_dir.realPathFileAlloc(io, ".", a) catch return error.OutOfMemory;
+}
+
 pub fn init(dir: Storage, io: Io) !void {
     storage_dir = dir;
     inline for (.{

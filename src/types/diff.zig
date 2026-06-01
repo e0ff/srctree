@@ -23,6 +23,8 @@ pub const State = enum(usize) {
     curl = 2,
     pending_curl = 3,
     diff_repo_branch = 4,
+    git_push_new = 5,
+    git_push_update = 6,
 };
 
 const typeio = Types.readerWriter(Diff, .{

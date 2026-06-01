@@ -51,7 +51,8 @@ fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
     try map.put("REMOTE_USER", username);
 
     try map.put("SRCTREE_DIRECT_ENABLED", "true");
-    try map.put("SRCTREE_DIRECT_DATADIR", "data/");
+    const datadir = try types.currentPathAlloc(f.alloc, f.io);
+    try map.put("SRCTREE_DIRECT_DATADIR", datadir);
     try map.put("SRCTREE_HTTP", "true");
     try map.put("SRCTREE_HOST", try (f.request.host orelse return error.DataMissing).valid());
     try map.put("SRCTREE_REPO", rd.name);
@@ -259,6 +260,7 @@ const allocPrint = std.fmt.allocPrint;
 const RouteData = @import("endpoints/repos.zig").RouteData;
 
 const main = @import("main.zig");
+const types = @import("types.zig");
 
 const verse = @import("verse");
 const Frame = verse.Frame;

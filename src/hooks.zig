@@ -148,14 +148,62 @@ pub fn postUpdate(_: *const Env) !void {
     // this hook.
 }
 
+pub const diffs = struct {
+    pub fn new(env: *const Env, pr: ProcRecv, repo: *const git.Repo, dir: Io.Dir, out: *Writer, a: Allocator, io: Io) !void {
+        const cmt = try repo.commit(pr.new, a, io);
+        const user = cmt.committer.name;
+        var delta = try Delta.new(env.repo.?, std.mem.trim(u8, cmt.title, "\n "), cmt.body, user, io);
+
+        var b: [512]u8 = undefined;
+        const ref = print(&b, "refs/diffs/{}/head", .{delta.index}) catch unreachable;
+        const ref_dir = ref[0 .. ref.len - 5];
+        if (try dir.createDirPathStatus(io, ref_dir, .default_dir) == .created) {
+            var diff: Diff = try .new(&delta, user, "", a, io);
+            try diff.commit(io);
+            try delta.commit(io);
+        } else {
+            return diffs.update(env, pr, repo, dir, out, a, io);
+        }
+
+        try pr.writeOptions(out, .refname(ref));
+        var hash_buf: [512]u8 = undefined;
+        try dir.writeFile(io, .{
+            .sub_path = ref,
+            .data = try print(&hash_buf, "{f}\n", .{pr.new.text()}),
+        });
+    }
+
+    pub fn update(env: *const Env, pr: ProcRecv, repo: *const git.Repo, dir: Io.Dir, out: *Writer, a: Allocator, io: Io) !void {
+        _ = env;
+        const cmt = try repo.commit(pr.new, a, io);
+        _ = cmt;
+        const diff_id: usize = 12;
+        var b: [512]u8 = undefined;
+        const ref = print(&b, "refs/diffs/{}/head", .{diff_id}) catch unreachable;
+        const ref_dir = ref[0 .. ref.len - 5];
+
+        if (try dir.createDirPathStatus(io, ref_dir, .default_dir) == .created) {
+            // TODO write to refs/diffs/12 and then refs/extended/diffs/12/{head,rev-0}
+        } else {
+            // TODO find rev-* and set rev-*
+        }
+
+        try pr.writeOptions(out, .refname(ref));
+        var hash_buf: [512]u8 = undefined;
+        try dir.writeFile(io, .{
+            .sub_path = ref,
+            .data = try print(&hash_buf, "{f}\n", .{pr.new.text()}),
+        });
+    }
+};
+
 pub fn procReceive(in: *Reader, out: *Writer, env: *const Env, a: Allocator, io: Io) !void {
     const dir = try std.Io.Dir.cwd().openDir(io, ".", .{});
     var repo: git.Repo = try .init(dir, io);
     try repo.loadData(a, io);
     defer repo.raze(a, io);
 
-    const header = try PktLine.read(in);
-    _ = header;
+    _ = try PktLine.read(in); // header
     _ = try PktLine.read(in); // flush
     try PktLine.write(out, "version=1\x00push-options agent=srctree/0.0.0\n");
     try PktLine.writeFlush(out);
@@ -166,42 +214,37 @@ pub fn procReceive(in: *Reader, out: *Writer, env: *const Env, a: Allocator, io:
         .flush => break,
         .bytes => |bytes| {
             const pr: ProcRecv = try .init(std.mem.trim(u8, bytes, "\n "));
-
-            if (!eql(u8, pr.ref, "refs/diffs/new") and !eql(u8, pr.ref, "refs/heads/diffs/new")) {
-                if (env.authenticated) {
-                    try pr.fallThrough(out);
-                } else {
-                    try pr.nak("unauthenticated", out);
+            if (cutPrefix(u8, pr.ref, "refs/")) |refroot| {
+                const ref = cutPrefix(u8, refroot, "heads/") orelse refroot;
+                if (cutPrefix(u8, ref, "diffs/")) |base| {
+                    if (eql(u8, base, "new")) {
+                        if (!env.authenticated) {
+                            const cmt = try repo.commit(pr.new, a, io);
+                            const head = try repo.HEAD(a, io);
+                            if (!head.sha.eql(cmt.parent[0].?)) {
+                                try pr.nak("unauthenticated (commit history too long)", out);
+                                continue;
+                            }
+                        }
+                        try diffs.new(env, pr, &repo, dir, out, a, io);
+                        continue;
+                    } else if (endsWith(u8, base, "/head")) {
+                        try diffs.update(env, pr, &repo, dir, out, a, io);
+                        continue;
+                    }
                 }
-                continue;
-            }
-
-            if (!env.authenticated) {
-                const cmt = try repo.commit(pr.new, a, io);
-                const head = try repo.HEAD(a, io);
-                if (!head.sha.eql(cmt.parent[0].?)) {
-                    try pr.nak("unauthenticated (long history)", out);
-                    continue;
+                if (!env.authenticated) {
+                    try pr.nak("unauthenticated (invalid target)", out);
+                    return error.PushDenied;
                 }
+                try pr.fallThrough(out);
             }
 
-            const diff_id: usize = 12;
-            var b: [512]u8 = undefined;
-            const ref = try print(&b, "refs/diffs/{}/head", .{diff_id});
-            const ref_dir = ref[0 .. ref.len - 5];
-
-            if (try dir.createDirPathStatus(io, ref_dir, .default_dir) == .created) {
-                // TODO write to refs/diffs/12 and then refs/extended/diffs/12/{head,rev-0}
-            } else {
-                // TODO find rev-* and set rev-*
-            }
-
-            try pr.writeOptions(out, .refname(ref));
-            var hash_buf: [512]u8 = undefined;
-            try dir.writeFile(io, .{
-                .sub_path = ref,
-                .data = try print(&hash_buf, "{f}\n", .{pr.new.text()}),
-            });
+            try pr.nak(if (!env.authenticated)
+                "unauthenticated (invalid target)"
+            else
+                "invalid ref", out);
+            return error.PushDenied;
         },
         else => return {},
     } else |e| switch (e) {
@@ -310,6 +353,7 @@ const splitScalar = std.mem.splitScalar;
 const cutPrefix = std.mem.cutPrefix;
 const types = @import("types.zig");
 const Delta = types.Delta;
+const Diff = types.Diff;
 const StringArrayHashMap = std.StringArrayHashMapUnmanaged;
 const git = @import("git.zig");
 const PktLine = git.protocol.PktLine;
