@@ -55,6 +55,7 @@ fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
     try map.put("SRCTREE_HTTP", "true");
     try map.put("SRCTREE_HOST", try (f.request.host orelse return error.DataMissing).valid());
     try map.put("SRCTREE_REPO", rd.name);
+    if (f.user) |usr| if (usr.username) |name| try map.put("SRCTREE_USER", name);
 
     const qstr = f.request.data.query.bytes;
     if (startsWith(u8, qstr, "service=git-")) {

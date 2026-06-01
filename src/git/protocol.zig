@@ -35,19 +35,93 @@ pub const PktLine = union(enum) {
         return .{ .bytes = try r.take(size -| 4) };
     }
 
+    pub fn writeFlush(w: *std.Io.Writer) !void {
+        try w.writeAll("0000");
+        try w.flush();
+    }
+
+    pub fn write(w: *std.Io.Writer, str: []const u8) !void {
+        std.debug.assert(str.len != 0);
+        try w.print("{x:0>4}", .{str.len + 4});
+        try w.writeAll(str);
+    }
+
     pub fn format(pkt: PktLine, w: *std.Io.Writer) !void {
         switch (pkt) {
             .flush => try w.writeAll("0000"),
             .delimiter => try w.writeAll("0001"),
             .end => try w.writeAll("0002"),
-            .bytes => |bytes| {
-                std.debug.assert(bytes.len != 0);
-                try w.print("{x:0>4}", .{bytes.len + 4});
-                try w.writeAll(bytes);
-            },
+            .bytes => |bytes| try write(w, bytes),
         }
     }
 };
+
+pub const ProcRecv = struct {
+    ref: []const u8,
+    old: git.Sha,
+    new: git.Sha,
+
+    pub const Options = struct {
+        ref: ?[]const u8 = null,
+        old: ?git.Sha = null,
+        new: ?git.Sha = null,
+        forced: bool = false,
+    };
+
+    // ofs-delta
+    // push-cert=%s
+    // session-id=%s
+    // object-format=%s
+    // agent=%s
+
+    pub fn init(str: []const u8) !ProcRecv {
+        if (std.mem.find(u8, str, " ")) |old_i| {
+            if (old_i != 40 and old_i != 64) return error.ParseFailed;
+            if (std.mem.findPos(u8, str, old_i + 1, " ")) |new_i| {
+                if (new_i != 81 and new_i != 129) return error.ParseFailed;
+                return .{
+                    .old = .init(str[0..old_i]),
+                    .new = .init(str[old_i + 1 .. new_i]),
+                    .ref = str[new_i + 1 ..],
+                };
+            }
+        }
+
+        return error.Invalid;
+    }
+
+    pub fn ok(pr: ProcRecv, w: *std.Io.Writer) !void {
+        var res_b: [512]u8 = undefined;
+        const res = try std.fmt.bufPrint(&res_b, "ok {s}\n", .{pr.ref});
+        try w.print("{f}", .{PktLine{ .bytes = res }});
+    }
+
+    pub fn nak(pr: ProcRecv, reason: []const u8, w: *std.Io.Writer) !void {
+        var res_b: [2048]u8 = undefined;
+        const res = try std.fmt.bufPrint(&res_b, "ng {s} {s}\n", .{ pr.ref, reason });
+        try w.print("{f}", .{PktLine{ .bytes = res }});
+    }
+
+    pub fn fallThrough(pr: ProcRecv, w: *std.Io.Writer) !void {
+        try w.print("{x:0>4}ok {s}\n", .{ 8 + pr.ref.len, pr.ref });
+        try PktLine.write(w, "option fall-through\n");
+    }
+
+    pub fn writeOptions(pr: ProcRecv, w: *std.Io.Writer, options: Options) !void {
+        try w.print("{x:0>4}ok {s}\n", .{ 8 + pr.ref.len, pr.ref });
+        if (options.ref) |ref| try w.print("{x:0>4}option refname {s}\n", .{ 16 + ref.len + 4, ref });
+        if (options.new) |new| try w.print("{x:0>4}option new-oid {f}\n", .{ 16 + new.text().slice().len + 4, new.text() });
+        if (options.old) |old| try w.print("{x:0>4}option old-oid {f}\n", .{ 16 + old.text().slice().len + 4, old.text() });
+        if (options.forced) try PktLine.write(w, "option forced-update");
+    }
+};
+
+test ProcRecv {
+    try std.testing.expectEqualDeep(
+        ProcRecv{ .old = .zeros, .new = .init("abacde74bbdaf6f3c74e83e83186b0c91d99b06d"), .ref = "refs/heads/new" },
+        ProcRecv.init("0000000000000000000000000000000000000000 abacde74bbdaf6f3c74e83e83186b0c91d99b06d refs/heads/new"),
+    );
+}
 
 pub const commands = struct {
     pub const @"ls-refs" = struct {
@@ -61,8 +135,6 @@ pub const commands = struct {
         // flush
     };
 };
-
-const flush = "0000";
 
 pub const Caps = struct {
     @"report-status": bool,
@@ -159,7 +231,7 @@ pub const Caps = struct {
 
 pub fn announce(header: []const u8, c: Caps, w: *std.Io.Writer) !void {
     try w.writeAll(header);
-    try w.writeAll(flush);
+    try w.writeAll("0000");
 
     var cap_buf: [512]u8 = undefined;
     var caps = std.fmt.bufPrint(&cap_buf, "{f}", .{c}) catch unreachable;
@@ -169,7 +241,7 @@ pub fn announce(header: []const u8, c: Caps, w: *std.Io.Writer) !void {
     const len = 4 + 40 + 1 + name.len + 1 + caps.len + 1;
     try w.print("{x:0>4}{x} {s}\x00{s}\n", .{ len, @as([20]u8, @splat(0)), name, caps });
     inline for (.{}) |_| {}
-    try w.writeAll(flush);
+    try w.writeAll("0000");
 }
 
 pub fn announceFiltered(c: Caps, w: *std.Io.Writer) !void {
@@ -215,3 +287,4 @@ test {
 }
 
 const std = @import("std");
+const git = @import("../git.zig");

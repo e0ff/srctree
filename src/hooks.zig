@@ -16,12 +16,10 @@ pub fn main(init: std.process.Init) !u8 {
 
     const env: Env = try .init(&init.minimal.environ, a);
 
-    if (env.datadir) |datadir| {
-        try types.init(
-            try std.Io.Dir.cwd().createDirPathOpen(io, datadir, .{ .open_options = .{ .iterate = true } }),
-            io,
-        );
-    }
+    if (env.datadir) |datadir| try types.init(
+        try std.Io.Dir.cwd().createDirPathOpen(io, datadir, .{ .open_options = .{ .iterate = true } }),
+        io,
+    );
 
     if (endsWith(u8, arg0, "pre-receive")) {
         // https://git-scm.com/docs/githooks#pre-receives
@@ -64,29 +62,16 @@ pub fn main(init: std.process.Init) !u8 {
         }
     } else if (endsWith(u8, arg0, "proc-receive")) {
         // https://git-scm.com/docs/githooks#proc-receive
-        procReceive(stdin, stdout, &env) catch return 1;
+        procReceive(stdin, stdout, &env, a, io) catch return 1;
     }
 
     return 0;
 }
 
 pub fn preReceive(stdin: *Reader, _: *const Env) !void {
-    // This hook is invoked by git-receive-pack[1] when it reacts to git
-    // push and updates reference(s) in its repository. Just before
-    // starting to update refs on the remote repository, the pre-receive
-    // hook is invoked. Its exit status determines the success or failure
-    // of the update.
-
-    // This hook executes once for the receive operation. It takes no
-    // arguments, but for each ref to be updated it receives on standard
-    // input a line of the format:
-
-    // <old-oid> SP <new-oid> SP <ref-name> LF
-
-    // where <old-oid> is the old object name stored in the ref, <ne
-    // -oid> is the new object name to be stored in the ref and <re
-    // -name> is the full name of the ref. When creating a new ref,
-    // <old-oid> is the all-zeroes object name.
+    // This hook executes once for the receive operation. It takes no arguments,
+    // but for each ref to be updated it receives on standard input a line of
+    // the format: <old-oid> SP <new-oid> SP <ref-name> LF
 
     // If the hook exits with non-zero status, none of the refs will
     // be updated. If the hook exits with zero, updating of individual
@@ -102,14 +87,13 @@ pub fn preReceive(stdin: *Reader, _: *const Env) !void {
 }
 
 pub fn postReceive(stdin: *Reader, _: *const Env) !void {
-    // The hook takes no arguments. It receives one line on standard
-    // input for each ref that is successfully updated following the
-    // same format as the pre-receive hook.
+    //std.debug.print("post receive\n", .{});
     while (stdin.takeSentinel('\n')) |line| {
         if (false) std.debug.print("line: {s}\n", .{line});
     } else |_| return;
 }
 
+/// NOTE: update may not get `refname` changes from procReceieve
 pub fn update(
     ref: []const u8,
     old_oid: []const u8,
@@ -118,39 +102,7 @@ pub fn update(
     a: Allocator,
     io: std.Io,
 ) !void {
-    std.debug.print("update \n{f}\n", .{env});
-    // This hook is invoked by git-receive-pack[1] when it reacts to git
-    // push and updates reference(s) in its repository. Just before
-    // updating the ref on the remote repository, the update hook is
-    // invoked. Its exit status determines the success or failure of the
-    // ref update.
-    //
-    // The hook executes once for each ref to be updated, and takes three
-    // parameters:
-    //     the name of the ref being updated,
-    //     the old object name stored in the ref,
-    //     and the new object name to be stored in the ref.
-    //
-    // A zero exit from the update hook allows the ref to be updated.
-    // Exiting with a non-zero status prevents git receive-pack from
-    // updating that ref.
-    //
-    // This hook can be used to prevent forced update on certain refs
-    // by making sure that the object name is a commit object that is
-    // a descendant of the commit object named by the old object name.
-    // That is, to enforce a "fast-forward only" policy.
-    //
-    // It could also be used to log the old..new status. However, it
-    // does not know the entire set of branches, so it would end up
-    // firing one e-mail per ref when used naively, though. The
-    // post-receive hook is more suited to that.
-    //
-    // In an environment that restricts the users' access only to
-    // git commands over the wire, this hook can be used to implement
-    // access control without relying on filesystem ownership and
-    // group membership. See git-shell[1] for how you might use the
-    // login shell to restrict the user’s access to only git commands.
-    if (false) std.debug.print("{s} {s} {s}\n", .{ ref, old_oid, target_oid });
+    if (false) std.debug.print("update {s} {s} {s}\n", .{ ref, old_oid, target_oid });
     switch (env.method) {
         .unknown => return error.UnsupportedEnv,
         .git => return error.NotImplemented,
@@ -196,44 +148,60 @@ pub fn postUpdate(_: *const Env) !void {
     // this hook.
 }
 
-pub fn procReceive(stdin: *Reader, out: *Writer, _: *const Env) !void {
-    // ofs-delta
-    // push-cert=%s
-    // session-id=%s
-    // object-format=%s
-    // agent=%s
+pub fn procReceive(in: *Reader, out: *Writer, env: *const Env, a: Allocator, io: Io) !void {
+    const dir = try std.Io.Dir.cwd().openDir(io, ".", .{});
+    var repo: git.Repo = try .init(dir, io);
+    try repo.loadData(a, io);
+    defer repo.raze(a, io);
 
-    const header = try git.protocol.PktLine.read(stdin);
+    const header = try PktLine.read(in);
     _ = header;
-    _ = try git.protocol.PktLine.read(stdin);
-    try out.print("{f}{f}", .{
-        git.protocol.PktLine{ .bytes = "version=1\x00push-options agent=srctree/0.0.0\n" },
-        git.protocol.PktLine{ .flush = {} },
-    });
-    try out.flush();
+    _ = try PktLine.read(in); // flush
+    try PktLine.write(out, "version=1\x00push-options agent=srctree/0.0.0\n");
+    try PktLine.writeFlush(out);
 
-    defer {
-        (git.protocol.PktLine{ .flush = {} }).format(out) catch {};
-        out.flush() catch {};
-    }
-    while (git.protocol.PktLine.read(stdin)) |line| switch (line) {
+    defer PktLine.writeFlush(out) catch {};
+
+    while (PktLine.read(in)) |line| switch (line) {
         .flush => break,
         .bytes => |bytes| {
-            var res_b: [512]u8 = undefined;
-            const res = try std.fmt.bufPrint(&res_b, "ok {s}\n", .{std.mem.trim(u8, bytes[std.mem.find(u8, bytes, "refs") orelse 0 ..], "\n ")});
-            try out.print(
-                "{f}{f}{f}",
-                //"{f}{f}{f}{f}{f}",
-                .{
-                    git.protocol.PktLine{ .bytes = res },
-                    git.protocol.PktLine{ .bytes = "option refname refs/diff/12/head" },
-                    //git.protocol.PktLine{ .bytes = "option old-oid 0000000000000000000000000000000000000000" },
-                    //git.protocol.PktLine{ .bytes = "option new-oid abacde74bbdaf6f3c74e83e83186b0c91d99b06d" },
-                    git.protocol.PktLine{ .bytes = "option fall-through" },
-                },
-            );
-            try out.flush();
-            //return;
+            const pr: ProcRecv = try .init(std.mem.trim(u8, bytes, "\n "));
+
+            if (!eql(u8, pr.ref, "refs/diffs/new") and !eql(u8, pr.ref, "refs/heads/diffs/new")) {
+                if (env.authenticated) {
+                    try pr.fallThrough(out);
+                } else {
+                    try pr.nak("unauthenticated", out);
+                }
+                continue;
+            }
+
+            if (!env.authenticated) {
+                const cmt = try repo.commit(pr.new, a, io);
+                const head = try repo.HEAD(a, io);
+                if (!head.sha.eql(cmt.parent[0].?)) {
+                    try pr.nak("unauthenticated (long history)", out);
+                    continue;
+                }
+            }
+
+            const diff_id: usize = 12;
+            var b: [512]u8 = undefined;
+            const ref = try print(&b, "refs/diffs/{}/head", .{diff_id});
+            const ref_dir = ref[0 .. ref.len - 5];
+
+            if (try dir.createDirPathStatus(io, ref_dir, .default_dir) == .created) {
+                // TODO write to refs/diffs/12 and then refs/extended/diffs/12/{head,rev-0}
+            } else {
+                // TODO find rev-* and set rev-*
+            }
+
+            try pr.writeOptions(out, .{ .ref = ref });
+            var hash_buf: [512]u8 = undefined;
+            try dir.writeFile(io, .{
+                .sub_path = ref,
+                .data = try print(&hash_buf, "{f}\n", .{pr.new.text()}),
+            });
         },
         else => return {},
     } else |e| switch (e) {
@@ -258,11 +226,15 @@ const Env = struct {
     repo: ?[]const u8,
     datadir: ?[]const u8,
 
+    user: ?[]const u8 = null,
+    authenticated: bool = false,
+
     pub fn init(env: *const std.process.Environ, a: Allocator) !Env {
         var map = try env.createMap(a);
         var method: PushMethod = .unknown;
         const host: ?[]const u8 = map.get("SRCTREE_HOST");
         const repo: ?[]const u8 = map.get("SRCTREE_REPO");
+        const user: ?[]const u8 = map.get("SRCTREE_USER");
         var datadir: ?[]const u8 = map.get("SRCTREE_DIRECT_DATADIR");
 
         if (map.contains("SRCTREE_HTTP")) {
@@ -284,7 +256,7 @@ const Env = struct {
             if (count > 0) {
                 var b: [64]u8 = undefined;
                 for (0..count) |i| {
-                    const opt_str = try std.fmt.bufPrint(&b, "GIT_PUSH_OPTION_{}", .{i});
+                    const opt_str = try print(&b, "GIT_PUSH_OPTION_{}", .{i});
                     const opt = map.get(opt_str) orelse return error.ExpectedEnvMissing;
                     try list.put(a, opt, {});
                 }
@@ -298,6 +270,9 @@ const Env = struct {
             .repo = repo,
             .host = host,
             .datadir = datadir,
+            .user = user,
+            // TODO better authentication
+            .authenticated = user != null and !startsWith(u8, user.?, "anon"),
         };
     }
 
@@ -308,7 +283,11 @@ const Env = struct {
 
     pub fn format(env: Env, w: *std.Io.Writer) !void {
         try w.print("Env:\n", .{});
-        try w.print("Host: '{s}' Repo: '{s}'\n", .{ env.host orelse "null", env.repo orelse "null" });
+        try w.print("Host: '{s}' Repo: '{s}' User: '{s}'\n", .{
+            env.host orelse "null",
+            env.repo orelse "null",
+            env.user orelse "null",
+        });
         for (env.push_options.keys()) |e| {
             try w.print("    push-option: '{s}'\n", .{e});
         }
@@ -321,13 +300,18 @@ const Env = struct {
 const std = @import("std");
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
-const Reader = std.Io.Reader;
-const Writer = std.Io.Writer;
+const Io = std.Io;
+const Reader = Io.Reader;
+const Writer = Io.Writer;
 const eql = std.mem.eql;
 const endsWith = std.mem.endsWith;
+const startsWith = std.mem.startsWith;
 const splitScalar = std.mem.splitScalar;
 const cutPrefix = std.mem.cutPrefix;
 const types = @import("types.zig");
 const Delta = types.Delta;
 const StringArrayHashMap = std.StringArrayHashMapUnmanaged;
 const git = @import("git.zig");
+const PktLine = git.protocol.PktLine;
+const ProcRecv = git.protocol.ProcRecv;
+const print = std.fmt.bufPrint;
