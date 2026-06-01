@@ -196,7 +196,7 @@ pub fn procReceive(in: *Reader, out: *Writer, env: *const Env, a: Allocator, io:
                 // TODO find rev-* and set rev-*
             }
 
-            try pr.writeOptions(out, .{ .ref = ref });
+            try pr.writeOptions(out, .refname(ref));
             var hash_buf: [512]u8 = undefined;
             try dir.writeFile(io, .{
                 .sub_path = ref,

@@ -66,6 +66,15 @@ pub const ProcRecv = struct {
         old: ?git.Sha = null,
         new: ?git.Sha = null,
         forced: bool = false,
+
+        pub fn refname(name: []const u8) Options {
+            return .{
+                .ref = name,
+                .old = null,
+                .new = null,
+                .forced = false,
+            };
+        }
     };
 
     // ofs-delta
