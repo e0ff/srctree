@@ -201,6 +201,12 @@ pub fn loadRefs(self: *Repo, a: Allocator, io: Io) !void {
                 const name = try a.dupe(u8, ref_name);
                 if (try local.fetchPut(a, name, .{ .sha = sha })) |_|
                     a.free(name);
+            } else if (cutPrefix(u8, next.path, "diffs/")) |_| {
+                if (find(u8, sha_txt, "ref: ")) |_| continue;
+                const sha: Sha = .init(sha_txt);
+                const name = try a.dupe(u8, next.path);
+                if (try local.fetchPut(a, name, .{ .sha = sha })) |_|
+                    a.free(name);
             } else if (cutPrefix(u8, next.path, "tags/")) |ref_name| {
                 if (find(u8, sha_txt, "ref: ")) |_| continue;
                 const sha: Sha = .init(sha_txt);
