@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <Build MetaHead _meta_head.html />
+  </head>
+  <body>
+    <Build BodyHeader _body_header.html />
+    <content>
+      <Build RepoHeader _base_repo_header.html />
+
+      <banner>
+        <name><Title /></name>
+        <p>
+          <div class=muted><Status /> | Created <Created /> by <Creator ornull /> | Updated <Updated /></div>
+          <desc><Description /></desc>
+        </p>
+      </banner>
+	  
+      <core>
+      <Switch DeltaFlavor>
+      <Case Commit>
+      <delta class="commit">
+        <With Patch>
+          <commit>
+          <Directive name="InlineToggle" type="enum" text="active" />
+          <div style="width: 100%"><span class="toggle">
+              <a class="<InlineToggle enum="inlined" />" href="?inline=true">inline</a>
+              <a class="<InlineToggle enum="split" />" href="?inline=false">split</a>
+            </span></div>
+          <Build Patch _patch.html />
+          </commit>
+        </With>
+        <With CurlHint><div>
+
+          <p>Submit changes using curl</p>
+          <span class="coderef" style="padding: 1rem 2rem;">
+            git log -p <BaseRef />..<HeadRef />| curl -F "patch=@-" https://<Host />/repo/<RepoName />/diff/<DiffIdx />
+          </span>
+        </div></With>
+          <comments>
+            <Build Comments _comment_thread.html />
+            <Build CommentBox _comment_box.html />
+          </comments>
+
+      </delta>
+      </Case>
+      <Case Diff>
+        <With CurlHint><div>
+          <p>Submit changes using curl</p>
+          <span class="coderef" style="padding: 1rem 2rem;">
+            git log -p <BaseRef />..<HeadRef />| curl -F "patch=@-" https://<Host />/repo/<RepoName />/diff/<DiffIdx />
+          </span>
+        </div></With>
+        <With Patch>
+          <diff>
+            <Directive name="InlineToggle" type="enum" text="active" />
+            <div style="width: 100%"><span class="toggle">
+              <a class="<InlineToggle enum="inlined" />" href="?inline=true">inline</a>
+              <a class="<InlineToggle enum="split" />" href="?inline=false">split</a>
+            </span></div>
+            <Build Patch _patch.html />
+          </diff>
+        </With>
+        <delta class="diff">
+          <comments>
+            <Build Comments _comment_thread.html />
+            <Build CommentBox _comment_box.html />
+            <With PatchWarning><button type="submit" name="no-apply" class="red">Patch Does Not Apply</button></With>
+          </comments>
+        </delta>
+      </Case>
+      <Case Issue>
+        <delta class="issue">
+          <comments>
+            <Build Comments _comment_thread.html />
+            <Build CommentBox _comment_box.html />
+          </comments>
+          <sidebar>
+            Created: <Created /><br>
+            Updated: <Updated /><br>
+            Tags: none
+            <With TrackingRemote>
+              Tracking Remote: <br>
+              <span><Url /></span><br>
+            </With>
+          </sidebar>
+        </delta>
+      </Case>
+      </Switch>
+      </core>
+
+    </content>
+  </body>
+</html>

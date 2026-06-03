@@ -780,7 +780,7 @@ pub fn translateComment(comment: []const u8, patch: Patch, repo: *const Git.Repo
     return found_ref;
 }
 
-const DiffViewPage = Template.PageData("delta-diff.html");
+const DeltaPage = Template.PageData("delta.html");
 
 fn view(f: *Frame) Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
@@ -850,7 +850,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
     var patch_formatted: ?S.PatchHtml = null;
 
     var patch: ?Patch = null;
-    const curl_hint: S.DeltaDiffHtml.CurlHint = .{
+    const curl_hint: S.DeltaFlavor.Diff.CurlHint = .{
         .repo_name = .abx(rd.name),
         .diff_idx = .abx(delta_index),
         .base_ref = .abx(if (head_commit) |cmt| cmt.sha.text().slice()[0..8] else "base_commit"),
@@ -899,7 +899,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
 
     const username = if (f.user) |usr| usr.username.? else "public";
 
-    const patch_data: S.DeltaDiffHtml.Patch = .{
+    const patch_data: S.DeltaFlavor.Diff.Patch = .{
         .patch = patch_formatted orelse .{ .files = &.{} },
         .inline_toggle = if (patch_view_mode == .inlined) .inlined else .split,
     };
@@ -908,7 +908,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
     if (f.user) |usr| {
         body_header.nav.nav_auth = usr.username.?;
     }
-    var page = DiffViewPage.init(.{
+    var page: DeltaPage = .init(.{
         .meta_head = .{ .open_graph = .{} },
         .body_header = body_header,
         .repo_header = .{
@@ -918,22 +918,26 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
             .git_uri = null,
             .upstream = null,
         },
-        .patch = patch_data,
-        .curl_hint = if (diffM == null) curl_hint else null,
         .title = .abx(delta.title),
         .description = .abx(delta.message),
         .status = .safe(delta_shared.status(delta)),
         .created = .safe(try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.created, now)})),
         .updated = .safe(try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.updated, now)})),
         .creator = if (delta.author) |author| try allocPrint(f.alloc, "{f}", .{abx.Html{ .text = author }}) else null,
-        .comments = .{ .messages = messages },
-        .comment_box = .{
-            .current_username = .abx(username),
-            .delta_id = .safe(delta_index),
-            .diff_id = try allocPrint(f.alloc, "{}", .{delta.attach_target}),
-            .action_buttons = delta_shared.actionButtons(f, delta)[0..2],
+        .delta_flavor = .{
+            .diff = .{
+                .patch = patch_data,
+                .curl_hint = if (diffM == null) curl_hint else null,
+                .comments = .{ .messages = messages },
+                .comment_box = .{
+                    .current_username = .abx(username),
+                    .delta_id = .safe(delta_index),
+                    .diff_id = try allocPrint(f.alloc, "{}", .{delta.attach_target}),
+                    .action_buttons = delta_shared.actionButtons(f, delta)[0..2],
+                },
+                .patch_warning = if (applies) null else .{},
+            },
         },
-        .patch_warning = if (applies) null else .{},
     });
 
     try f.sendPage(&page);

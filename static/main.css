@@ -340,7 +340,8 @@ searchresults {
 		}
 	}
 }
-actionable {
+
+deltalist {
 	margin: 1rem 2.5%;
 	display: block;
 	min-height: 50px;
@@ -362,6 +363,7 @@ actionable {
 		desc { display: block; }
 	}
 }
+
 .upstream {
 	color: #bbb;
 	font-family: 'Titillium Web', sans-serif;
@@ -389,7 +391,7 @@ commit {
 }
 textarea.paste { width: 100%; min-height: 20em; }
 delta {
-	margin: 1em 0;
+	margin: 0 0 1em;
 	display: flex;
 	justify-content: space-between;
 	flex-wrap: wrap;
@@ -397,22 +399,6 @@ delta {
 	&.diff { flex-wrap: nowrap; }
 	comments { min-width: 30rem; flex-grow: 30; }
 	diff { flex-grow: 10; }
-	main {
-		width: auto;
-		min-width: 35rem;
-		text-align: left;
-		flex-grow: 4;
-		name {
-			font-family: 'Titillium Web', sans-serif;
-			background: #333;
-			border-radius: 2px;
-			padding: 0.4rem;
-			display: flex;
-			font-size: 160%;
-			justify-content: space-between;
-		}
-		desc { border-bottom: 1px solid gray; display: block; padding: 8px; }
-	}
 	sidebar {
 		flex-grow: 1;
 		min-width: 18rem;
@@ -423,6 +409,30 @@ delta {
 		border-bottom: 0;
 		padding-bottom: 1em;
 	}
+}
+banner {
+	width: auto;
+	min-width: 35rem;
+	text-align: left;
+	flex-grow: 4;
+	name {
+		font-family: 'Titillium Web', sans-serif;
+		background: #333;
+		border-radius: 2px;
+		padding: 0.4rem;
+		display: flex;
+		font-size: 160%;
+		justify-content: space-between;
+		position: sticky;
+		top:0;
+	}
+	desc { border-bottom: 1px solid gray; display: block; padding: 8px; }
+}
+core {
+	display: flex;
+	gap: 0.5em;
+	justify-content: space-between;
+	flex-wrap: wrap;
 }
 .new { background: white; color: black; border-radius: 100%; padding: 1.1px 3.3px; }
 patchrequest {
@@ -454,6 +464,7 @@ diff {
 	text-align: left;
 	display: block;
 	margin-bottom: 1em;
+	flex: 4 1 10rem;
 	filename {
 		background: #333;
 		border-radius: 3px 3px 0 0;

@@ -208,7 +208,7 @@ fn addComment(f: *verse.Frame) Error!void {
     return;
 }
 
-const DeltaIssuePage = T.PageData("delta-issue.html");
+const DeltaPage = T.PageData("delta.html");
 
 fn view(f: *verse.Frame) Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
@@ -246,7 +246,10 @@ fn view(f: *verse.Frame) Error!void {
     }
 
     const now: i64 = Io.Clock.real.now(f.io).toSeconds();
-    var page = DeltaIssuePage.init(.{
+    const created = try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.created, now)});
+    const updated = try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.updated, now)});
+
+    var page: DeltaPage = .init(.{
         .meta_head = meta_head,
         .body_header = body_header,
         .repo_header = .{
@@ -260,18 +263,24 @@ fn view(f: *verse.Frame) Error!void {
         .description = .safe(description),
         .creator = if (delta.author) |author| try allocPrint(f.alloc, "{f}", .{abx.Html{ .text = author }}) else null,
         .status = .safe(delta_shared.status(&delta)),
-        .created = .safe(try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.created, now)})),
-        .updated = .safe(try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.updated, now)})),
-        .comments = .{ .messages = messages },
-        .comment_box = .{
-            .current_username = .abx(username),
-            .delta_id = .abx(delta_id),
-            .action_buttons = delta_shared.actionButtons(f, &delta)[0..2],
+        .created = .safe(created),
+        .updated = .safe(updated),
+        .delta_flavor = .{
+            .issue = .{
+                .created = .safe(created),
+                .updated = .safe(updated),
+                .comments = .{ .messages = messages },
+                .comment_box = .{
+                    .current_username = .abx(username),
+                    .delta_id = .abx(delta_id),
+                    .action_buttons = delta_shared.actionButtons(f, &delta)[0..2],
+                },
+                .tracking_remote = if (delta.attach == .remote)
+                    .{ .url = .abx(delta.attach_remote) }
+                else
+                    null,
+            },
         },
-        .tracking_remote = if (delta.attach == .remote)
-            .{ .url = .abx(delta.attach_remote) }
-        else
-            null,
     });
     // required because linux will validate data.[slice].ptr and zig likes to
     // pretend that setting .ptr = undefined when .len == 0
