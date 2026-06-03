@@ -22,7 +22,7 @@ pub fn init(sha: Sha, data: []const u8) !Commit {
     var lines = std.mem.splitSequence(u8, data, "\n");
     // I don't like it either, but... lazy
     var p_idx: usize = 0;
-    var parent: [9]?Sha = .{ null, null, null, null, null, null, null, null, null };
+    var parent: [9]?Sha = @splat(null);
     var tree: ?Sha = null;
     var author: ?Actor = null;
     var committer: ?Actor = null;
