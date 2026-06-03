@@ -393,18 +393,17 @@ textarea.paste { width: 100%; min-height: 20em; }
 delta {
 	margin: 0 0 1em;
 	display: flex;
+	flex: 1 1 auto;
 	justify-content: space-between;
 	flex-wrap: wrap;
 	gap: 0.5em;
 	&.diff { flex-wrap: nowrap; }
-	comments { min-width: 30rem; flex-grow: 30; }
+	comments { /*min-width: 30em;*/ flex: 1 1 30em; }
 	diff { flex-grow: 10; }
 	sidebar {
-		flex-grow: 1;
+		flex: 1 1 auto;
 		min-width: 18rem;
 		margin: 0;
-		flex-direction: column;
-		gap: 1em;
 		border: 1px solid gray;
 		border-bottom: 0;
 		padding-bottom: 1em;
