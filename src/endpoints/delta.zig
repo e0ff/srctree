@@ -209,7 +209,7 @@ pub fn genThreadMessages(
                 .sub_thread = null,
             },
             .diff_update => .{
-                .author = .abx(try a.dupe(u8, msg.author orelse "[no offer]")),
+                .author = .abx(try a.dupe(u8, msg.author orelse "[no author]")),
                 .date = .safe(date),
                 .message = .abx(msg.message),
                 .edit = null,
@@ -218,7 +218,7 @@ pub fn genThreadMessages(
             },
             .state_change => .{
                 .class = "system",
-                .author = .abx(try a.dupe(u8, msg.author orelse "[no offer]")),
+                .author = .abx(try a.dupe(u8, msg.author orelse "[no author]")),
                 .date = .safe(date),
                 .message = .abx(msg.message),
                 .edit = null,
