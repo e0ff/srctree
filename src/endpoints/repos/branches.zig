@@ -10,7 +10,7 @@ pub fn list(frame: *Frame) Router.Error!void {
 
     // leaks a lot
     var all_branches: std.ArrayList(Git.Branch) = .empty;
-    for (repo.refs.keys(), repo.refs.values()) |name, branch| {
+    for (repo.refs.map.keys(), repo.refs.map.values()) |name, branch| {
         switch (branch) {
             .sha => try all_branches.append(frame.alloc, .{ .name = name, .sha = branch.sha }),
             .ref => {},
@@ -28,7 +28,10 @@ pub fn list(frame: *Frame) Router.Error!void {
 
     std.sort.heap(Git.Branch, repo_branches, SortCtx.init(&repo, frame.alloc, frame.io), sort);
 
-    const branches: []S.BranchesHtml.RepoBranches = try frame.alloc.alloc(S.BranchesHtml.RepoBranches, repo_branches.len);
+    const branches: []S.BranchesHtml.RepoBranches = try frame.alloc.alloc(
+        S.BranchesHtml.RepoBranches,
+        repo_branches.len,
+    );
     for (repo_branches, branches) |branch, *html| {
         html.* = .{
             .name = .abx(branch.name),

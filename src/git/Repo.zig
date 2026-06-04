@@ -53,7 +53,25 @@ pub const Config = struct {
     };
 };
 
-pub const RefMap = StringArrayHashMap(Ref);
+pub const RefMap = struct {
+    map: Map,
+
+    pub const Map = StringArrayHashMap(Ref);
+
+    pub const empty: RefMap = .{ .map = .empty };
+
+    pub fn count(rm: *const RefMap) usize {
+        return rm.map.count();
+    }
+
+    pub fn get(rm: *const RefMap, name: []const u8) void {
+        return rm.map.get(name);
+    }
+
+    pub fn deinit(rm: *RefMap, a: Allocator) void {
+        return rm.map.deinit(a);
+    }
+};
 
 /// on success d becomes owned by the returned Repo and will be closed on
 /// a call to raze
@@ -150,7 +168,7 @@ fn addRemote(repo: *Repo, ref_name: []const u8, sha_txt: []const u8, a: Allocato
         };
     }
     const branch = try a.dupe(u8, branch_str);
-    if (try gop.value_ptr.refs.fetchPut(a, branch, .{ .sha = .init(sha_txt) })) |_| {
+    if (try gop.value_ptr.refs.map.fetchPut(a, branch, .{ .sha = .init(sha_txt) })) |_| {
         a.free(branch);
     }
 }
@@ -165,7 +183,7 @@ pub fn loadRefs(self: *Repo, a: Allocator, io: Io) !void {
             if (std.mem.cut(u8, line, " refs/heads/")) |cut| {
                 const sha, const ref_name = cut;
                 const name = try a.dupe(u8, ref_name);
-                if (try local.fetchPut(a, name, .{ .sha = .init(sha) })) |_| a.free(name);
+                if (try local.map.fetchPut(a, name, .{ .sha = .init(sha) })) |_| a.free(name);
             } else if (std.mem.cut(u8, line, " refs/remotes/")) |cut| {
                 const sha, const ref_name = cut;
                 self.addRemote(ref_name, sha, a) catch return;
@@ -199,19 +217,19 @@ pub fn loadRefs(self: *Repo, a: Allocator, io: Io) !void {
                 if (find(u8, sha_txt, "ref: ")) |_| continue;
                 const sha: Sha = .init(sha_txt);
                 const name = try a.dupe(u8, ref_name);
-                if (try local.fetchPut(a, name, .{ .sha = sha })) |_|
+                if (try local.map.fetchPut(a, name, .{ .sha = sha })) |_|
                     a.free(name);
             } else if (cutPrefix(u8, next.path, "diffs/")) |_| {
                 if (find(u8, sha_txt, "ref: ")) |_| continue;
                 const sha: Sha = .init(sha_txt);
                 const name = try a.dupe(u8, next.path);
-                if (try local.fetchPut(a, name, .{ .sha = sha })) |_|
+                if (try local.map.fetchPut(a, name, .{ .sha = sha })) |_|
                     a.free(name);
             } else if (cutPrefix(u8, next.path, "tags/")) |ref_name| {
                 if (find(u8, sha_txt, "ref: ")) |_| continue;
                 const sha: Sha = .init(sha_txt);
                 const name = try a.dupe(u8, ref_name);
-                if (try local.fetchPut(a, name, .{ .tag = sha })) |_|
+                if (try local.map.fetchPut(a, name, .{ .tag = sha })) |_|
                     a.free(name);
             }
         }
@@ -231,16 +249,16 @@ pub fn loadRefs(self: *Repo, a: Allocator, io: Io) !void {
             //    try local.put(a, try a.dupe(u8, "HEAD"), .{ .sha = found });
             //} else |_| try local.put(a, try a.dupe(u8, "HEAD"), .{ .ref = try a.dupe(u8, head_str) });
             // repo sync agent requires a ref: refs/ to a valid remote HEAD
-            try local.put(a, try a.dupe(u8, "HEAD"), .{ .ref = try a.dupe(u8, head_str) });
+            try local.map.put(a, try a.dupe(u8, "HEAD"), .{ .ref = try a.dupe(u8, head_str) });
         } else {
-            try local.put(a, try a.dupe(u8, "HEAD"), .{ .sha = .init(trimWs(head)) });
+            try local.map.put(a, try a.dupe(u8, "HEAD"), .{ .sha = .init(trimWs(head)) });
         }
     } else |_| {}
 }
 
 pub fn ref(repo: Repo, str: []const u8) !Sha {
     const target = cutPrefix(u8, str, "refs/") orelse str;
-    if (repo.refs.get(target)) |refr| switch (refr) {
+    if (repo.refs.map.get(target)) |refr| switch (refr) {
         .tag => @panic("not implemented"),
         .sha => |s| return s,
         .ref => |r| {
@@ -261,7 +279,7 @@ pub fn resolve(self: Repo, r: Ref) !Sha {
 }
 
 pub fn HEAD(self: *const Repo, a: Allocator, io: Io) !Commit {
-    const sha = self.refs.get("HEAD") orelse return error.CommitInvalid;
+    const sha = self.refs.map.get("HEAD") orelse return error.CommitInvalid;
     switch (sha) {
         .sha => |s| return self.commit(s, a, io),
         else => |res| return self.commit(try res.resolve(self), a, io),
@@ -312,7 +330,7 @@ pub fn raze(self: *Repo, a: Allocator, io: Io) void {
 
     self.objects.raze(a, io);
 
-    for (self.refs.keys(), self.refs.values()) |key, val| switch (val) {
+    for (self.refs.map.keys(), self.refs.map.values()) |key, val| switch (val) {
         .ref => |r| {
             a.free(r);
             a.free(key);

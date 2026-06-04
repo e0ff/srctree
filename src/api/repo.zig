@@ -77,7 +77,7 @@ pub fn repoBranches(ctx: *API.verse.Frame) API.Router.Error!void {
     defer gitrepo.raze(ctx.alloc, ctx.io);
 
     var branches: ArrayList(RepoBranches.Branch) = .empty;
-    for (gitrepo.refs.keys(), gitrepo.refs.values()) |key, branch| {
+    for (gitrepo.refs.map.keys(), gitrepo.refs.map.values()) |key, branch| {
         if (std.mem.cutPrefix(u8, key, "heads/")) |name| {
             try branches.append(ctx.alloc, .{
                 .name = name,
@@ -114,7 +114,7 @@ pub fn repoTags(ctx: *API.verse.Frame) API.Router.Error!void {
     defer gitrepo.raze(ctx.alloc, ctx.io);
 
     var tstack: ArrayList([]const u8) = .empty;
-    for (gitrepo.refs.keys()) |ref| {
+    for (gitrepo.refs.map.keys()) |ref| {
         if (std.mem.cutPrefix(u8, ref, "tags/")) |tag| {
             try tstack.append(ctx.alloc, tag);
         }

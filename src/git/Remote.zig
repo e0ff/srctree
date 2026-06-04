@@ -57,7 +57,7 @@ pub fn raze(r: *Remote, a: std.mem.Allocator) void {
     a.free(r.name);
     if (r.url) |url| a.free(url);
     if (r.fetch) |fetch| a.free(fetch);
-    for (r.refs.keys()) |key| a.free(key);
+    for (r.refs.map.keys()) |key| a.free(key);
     r.refs.deinit(a);
 }
 
