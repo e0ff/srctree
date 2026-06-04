@@ -40,7 +40,6 @@ pub fn tree(ctx: *Frame, rd: RouteData, repo: *Git.Repo, files: *Git.Tree) Route
             for (changed) |ch| {
                 if (std.mem.eql(u8, ch.name, obj.name)) {
                     const sha_text = ch.sha.text();
-                    const commit_title = try allocPrint(ctx.alloc, "{f}", .{abx.Html{ .text = ch.title }});
                     const chref = try allocPrint(ctx.alloc, "/repo/{s}/commit/{s}", .{ rd.name, sha_text.slice()[0..8] });
                     const ctime = try allocPrint(ctx.alloc, "{f}", .{Humanize.unix(ch.timestamp, now)});
                     const href: []const u8 = if (obj.isFile())
@@ -51,7 +50,7 @@ pub fn tree(ctx: *Frame, rd: RouteData, repo: *Git.Repo, files: *Git.Tree) Route
                         try list_hidden.append(ctx.alloc, .{
                             .name = .abx(ch.name),
                             .href = .abx(href),
-                            .commit_title = .safe(commit_title),
+                            .commit_title = .abx(ch.title),
                             .commit_href = .safe(chref),
                             .commit_time = .safe(ctime),
                             .class = .safe(if (obj.isFile()) "tree" else "file"),
@@ -60,7 +59,7 @@ pub fn tree(ctx: *Frame, rd: RouteData, repo: *Git.Repo, files: *Git.Tree) Route
                         try list_files.append(ctx.alloc, .{
                             .name = .abx(ch.name),
                             .href = .abx(href),
-                            .commit_title = .safe(commit_title),
+                            .commit_title = .abx(ch.title),
                             .commit_href = .safe(chref),
                             .commit_time = .safe(ctime),
                         });
@@ -68,7 +67,7 @@ pub fn tree(ctx: *Frame, rd: RouteData, repo: *Git.Repo, files: *Git.Tree) Route
                         try list_trees.append(ctx.alloc, .{
                             .name = .abx(ch.name),
                             .href = .abx(href),
-                            .commit_title = .safe(commit_title),
+                            .commit_title = .abx(ch.title),
                             .commit_href = .safe(chref),
                             .commit_time = .safe(ctime),
                         });
