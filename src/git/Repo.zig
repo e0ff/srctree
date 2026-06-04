@@ -10,8 +10,6 @@ repo_name: ?[]const u8 = null,
 
 const Repo = @This();
 
-pub const RefMap = StringArrayHashMap(Ref);
-
 pub const default: Repo = .{
     .bare = false,
     .dir = undefined,
@@ -54,6 +52,8 @@ pub const Config = struct {
         heatmapexcluded: ?bool,
     };
 };
+
+pub const RefMap = StringArrayHashMap(Ref);
 
 /// on success d becomes owned by the returned Repo and will be closed on
 /// a call to raze
