@@ -14,6 +14,8 @@ const SearchReq = struct {
     q: ?[]const u8,
 };
 
+const extra_lines: usize = 6;
+
 fn repoSearch(f: *Frame, count: u32) Router.Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
     const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
@@ -142,7 +144,7 @@ fn searchFiles(str: []const u8, repo: *git.Repo, limited: u32, a: Allocator, io:
     try excludes.fromRepo(repo, &tree, a, io);
     try excludes.fromSearch(str, a);
     defer excludes.list.deinit(a);
-    for (excludes.list.items) |ex| log.warn("tree exclude {s}", .{ex});
+    for (excludes.list.items) |ex| log.info("tree exclude {s}", .{ex});
     // TODO real tokenization
     const string = str[0 .. findScalarPos(u8, str, 0, ' ') orelse str.len];
     try searchTree(&files, &tree, repo, "", string, &excludes, &limit, a, io);
@@ -150,12 +152,12 @@ fn searchFiles(str: []const u8, repo: *git.Repo, limited: u32, a: Allocator, io:
     var hits: ArrayList(S.SearchHtml.Files) = try .initCapacity(a, files.items.len);
     for (files.items) |hit| {
         var start: usize = hit.idx;
-        var before: usize = 4;
+        var before: usize = extra_lines;
         while (start > 0 and before > 0) : (start -|= 1) {
             if (hit.code[start] == '\n') before -|= 1;
         }
         var end: usize = hit.idx;
-        var after: usize = 4;
+        var after: usize = extra_lines;
         while (end < hit.code.len and after > 0) : (end += 1) {
             if (hit.code[end] == '\n') after -|= 1;
         }
@@ -186,11 +188,8 @@ const Exclude = struct {
     pub const new: Exclude = .{ .list = .empty };
 
     fn excluded(e: *Exclude, path: []const u8) bool {
-        for (e.list.items, 0..) |ex, i| {
-            if (startsWith(u8, path, ex)) {
-                _ = e.list.swapRemove(i);
-                return true;
-            }
+        for (e.list.items) |ex| {
+            if (startsWith(u8, path, ex)) return true;
         }
         return false;
     }
