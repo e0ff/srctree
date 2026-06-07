@@ -45,6 +45,9 @@ details:open > summary.hide { display: none; }
 .repo-header  {
 	display: flex;
 	justify-content: space-between;
+	position: sticky;
+	top:0;
+	background:#222;
 	> div { display: flex; justify-content: left; flex-wrap: wrap; gap: 0.4em;  }
 	h3 { font-family: 'Titillium Web', sans-serif; font-size: 220%; flex: 1 1 0; }
 	.description { font-size: 90%; color: #aaa; margin: auto 0; flex: 5 0 0; }
@@ -174,11 +177,11 @@ ln {
 	}
 	&:target { background-color: #222;  }
 	&:empty { width: auto; }
+	&.add { background: #568 }
 	&.del { background: #633 }
-	&.add { background: #353 }
 	&.nul { background: #2228; height: 1em; margin: 0 2px; }
+	&.add:target { background: #79d }
 	&.del:target { background: #a44 }
-	&.add:target { background: #484 }
 	&.nul:target { background: #2228; height: 1em; margin: 0 2px; }
 	lnex {
 		white-space: pre;
@@ -656,11 +659,13 @@ blob, gist, patch {
 			}
 		}
 		.block {
-			background: #569;
+			/* background: #4a4a91; might want to revert to this color */
+			/* background: #79d; blue color for addition */
+			/* background: #569; */
+			background: #422;
 			margin: 8px 0 8px auto;
 			border-top: 1px solid #999;
 			border-bottom: 2px solid #222;
-			/* background: #4a4a91; might want to revert to this color */
 			padding: 8px;
 			&:first-child { margin-top: 0; }
 		}

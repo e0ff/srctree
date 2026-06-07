@@ -73,17 +73,21 @@ pub fn blame(f: *Frame) Router.Error!void {
     const show_emails = f.user != null;
     const wrapped_blames = try wrapLineNumbersBlame(f.alloc, f.io, lines, map, rd.name, file_name, show_emails);
 
-    const upstream: ?S.BlameHtml.Upstream = if (repo.findRemote("upstream")) |up| .{
+    const upstream: ?S.BaseRepoHeaderHtml.Upstream = if (repo.findRemote("upstream")) |up| .{
         .href = .safe(try allocPrint(f.alloc, "{f}", .{std.fmt.alt(up, .formatLink)})),
     } else null;
 
     var page = BlamePage.init(.{
         .meta_head = .{ .open_graph = .{} },
         .body_header = f.response_data.get(S.BodyHeaderHtml).?.*,
+        .repo_header = .{
+            .repo_name = .abx(rd.name),
+            .description = .abx(repo.description(f.alloc, f.io) catch ""),
+            .git_uri = .{ .host = .safe(try (f.request.host orelse return error.DataMissing).valid()), .repo_name = .abx(rd.name) },
+            .upstream = upstream,
+            .blame = null,
+        },
         .filename = .abx(file_name),
-        .uri_filename = .abx(rd.path.?.buffer),
-        .repo_name = .abx(rd.name),
-        .upstream = upstream,
         .blame_lines = wrapped_blames,
     });
 
