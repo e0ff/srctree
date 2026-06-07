@@ -794,12 +794,15 @@ fn view(f: *Frame) Error!void {
         error.DeltaDoesNotExist => return error.InvalidURI,
     };
 
-    const revision: ?u64 = if (f.uri.next()) |next| if (eql(u8, next, "rev")) rev: {
-        break :rev if (f.uri.next()) |str|
-            parseInt(u64, str, 10) catch return error.InvalidURI
+    const revision: ?u64 = if (f.uri.next()) |next|
+        if (eql(u8, next, "rev"))
+            if (f.uri.next()) |str|
+                parseInt(u64, str, 10) catch return error.InvalidURI
+            else
+                return error.InvalidURI
         else
-            return error.InvalidURI;
-    } else return error.Unrouteable else switch (delta.attach) {
+            null
+    else switch (delta.attach) {
         .nos => null,
         .diff => delta.attach_target,
         .issue => {
