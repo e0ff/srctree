@@ -1,5 +1,13 @@
 const TreePage = PageData("tree.html");
 
+fn filenameIsHidden(name: []const u8) bool {
+    if (name.len == 0) return false;
+    if (name[0] == '.') return true;
+    return eql(u8, name, "README.md") or
+        eql(u8, name, "CONTRIBUTING.md") or
+        eql(u8, name, "LICENSE.md");
+}
+
 pub fn tree(ctx: *Frame, rd: RouteData, repo: *Git.Repo, files: *Git.Tree) Router.Error!void {
     const now: i64 = Io.Clock.real.now(ctx.io).toSeconds();
     const c = if (rd.ref) |ref|
@@ -46,7 +54,7 @@ pub fn tree(ctx: *Frame, rd: RouteData, repo: *Git.Repo, files: *Git.Tree) Route
                         try allocPrint(ctx.alloc, "{s}/blob/{s}{s}", .{ prefix, path orelse "", obj.name })
                     else
                         try allocPrint(ctx.alloc, "{s}/tree/{s}{s}", .{ prefix, path orelse "", obj.name });
-                    if (ch.name.len > 0 and ch.name[0] == '.') {
+                    if (filenameIsHidden(ch.name)) {
                         try list_hidden.append(ctx.alloc, .{
                             .name = .abx(ch.name),
                             .href = .abx(href),
