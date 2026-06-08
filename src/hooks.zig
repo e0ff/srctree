@@ -173,10 +173,8 @@ pub const diffs = struct {
             return diffs.update(pr, &delta, dir, w, a, io);
         }
         var hash_buf: [512]u8 = undefined;
-        try dir.writeFile(io, .{
-            .sub_path = ref_head,
-            .data = try print(&hash_buf, "{f}\n", .{pr.new.text()}),
-        });
+        const target = try print(&hash_buf, "{f}\n", .{pr.new.text()});
+        try dir.writeFile(io, .{ .sub_path = ref_head, .data = target });
         try pr.writeOptions(w, .refname(ref_head));
     }
 
@@ -188,7 +186,6 @@ pub const diffs = struct {
         a: Allocator,
         io: Io,
     ) !void {
-        //const delta: Delta = try .open(repo_name, delta_id, a, io);
         switch (delta.attach) {
             .diff => {},
             else => @panic("not implemented"),
