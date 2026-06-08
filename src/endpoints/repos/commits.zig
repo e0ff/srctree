@@ -132,7 +132,10 @@ fn commitHtml(f: *Frame, sha: []const u8, repo_name: []const u8, repo: Git.Repo)
         .repo_header = .{
             .repo_name = .abx(repo_name),
             .description = .abx(repo.description(f.alloc, f.io) catch ""),
-            .git_uri = .{ .host = .safe(try (f.request.host orelse return error.DataMissing).valid()), .repo_name = .abx(repo_name) },
+            .git_uri = .{
+                .host = .safe(try (f.request.host orelse return error.DataMissing).valid()),
+                .repo_name = .safe(repo_name),
+            },
             .upstream = upstream,
             .blame = null,
         },

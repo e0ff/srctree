@@ -6,43 +6,17 @@
   <body>
     <Build BodyHeader _body_header.html />
     <content>
+      <Build RepoHeader _base_repo_header.html />
       <With Err><div class="error"><ErrorString /></div></With>
         <form class="pretty" action="create" method="POST">
           <context>Suggest New Diff</context>
           <input name="title" placeholder="Diff Title" value="<Title ornull />" />
-          <div style="display:flex">
-          <With PatchUri>
-            <input name="patch_uri" placeholder="Patch URL" value="<Uri default="" />"/>
-            <button name="from_network" value="true" formaction="new">Use Network</button>
-            <button name="from_paste" value="true" formaction="new">Use Paste</button>
-            <button name="from_curl" value="true" formaction="new">Use Curl</button>
-          </With>
-          <With PatchNetwork>
-            <select name="network">
-              <For Remotes><option value="<Value>"><Name></option></For>
-            </select><span style="font-size: 130%;margin: auto;">/</span>
-            <select name="branch">
-              <For Branches><option value="<Value>"><Name></option></For>
-            </select>
-            <button name="from_uri" value="true" formaction="new">Use URL</button>
-            <button name="from_paste" value="true" formaction="new">Use Paste</button>
-            <button name="from_curl" value="true" formaction="new">Use Curl</button>
-          </With>
-          <With PatchPaste>
-            <textarea name="patch" placeholder="Paste Patch Here"><PatchBlob ornull /></textarea>
-            <button name="from_uri" value="true" formaction="new">Use URL</button>
-            <button name="from_network" value="true" formaction="new">Use Network</button>
-            <button name="from_curl" value="true" formaction="new">Use Curl</button>
-          </With>
-          <With PatchCurl>
-            <input name="via_curl" type="hidden" value="html makes me sad :<"/>
-            <input disabled="true" value="curl URL will be generated with successful draft"/>
-            <button name="from_uri" value="true" formaction="new">Use URL</button>
-            <button name="from_network" value="true" formaction="new">Use Network</button>
-            <button name="from_paste" value="true" formaction="new">Use Paste</button>
-          </With>
-          </div>
           <textarea name="desc" placeholder="Additional information about this patch suggestion"><Desc ornull /></textarea>
+          <hint class=right>
+            You can specify the source for the changes on the next page.<br>
+            Or you can create a diff directly via git push:
+           <With PushUri><span class=coderef>git push https://<Host />/repo/<RepoName /> HEAD:refs/diffs/create</span></With></hint>
+          </hint>
           <buttons>
             <button name="preview" disabled=disabled>Preview [not implemented]</button>
             <button name="submit">Submit</button>

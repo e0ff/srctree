@@ -41,6 +41,12 @@ div {
 }
 h1,h2,h3 { margin: 0 }
 summary { display: block }
+hint {
+	color: #bbb;
+	font-family: 'Titillium Web', sans-serif;
+	font-size: 80%;
+	&.right { margin: 0 0.5em; text-align:right; }
+}
 details:open > summary.hide { display: none; }
 .repo-header  {
 	display: flex;
