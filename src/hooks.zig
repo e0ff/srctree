@@ -112,7 +112,7 @@ pub fn update(
                 if (false and true) return error.TargetExists;
             }
             if (cutPrefix(u8, ref, "refs/heads/diffs/")) |dif_num| {
-                const idx = std.fmt.parseInt(usize, dif_num, 0) catch return error.MalformedTarget;
+                const idx = parseInt(usize, dif_num, 0) catch return error.MalformedTarget;
                 var delta = Delta.open(env.repo.?, idx, a, io) catch |err| {
                     return err;
                 };
@@ -149,51 +149,73 @@ pub fn postUpdate(_: *const Env) !void {
 }
 
 pub const diffs = struct {
-    pub fn new(env: *const Env, pr: ProcRecv, repo: *const git.Repo, dir: Io.Dir, out: *Writer, a: Allocator, io: Io) !void {
+    pub fn new(
+        env: *const Env,
+        pr: ProcRecv,
+        repo: *const git.Repo,
+        dir: Io.Dir,
+        w: *Writer,
+        a: Allocator,
+        io: Io,
+    ) !void {
         const cmt = try repo.commit(pr.new, a, io);
         const user = cmt.committer.name;
         var delta = try Delta.new(env.repo.?, std.mem.trim(u8, cmt.title, "\n "), cmt.body, user, io);
 
         var b: [512]u8 = undefined;
-        const ref = print(&b, "refs/diffs/{}/head", .{delta.index}) catch unreachable;
-        const ref_dir = ref[0 .. ref.len - 5];
+        const ref_head = print(&b, "refs/diffs/{}/head", .{delta.index}) catch unreachable;
+        const ref_dir = ref_head[0 .. ref_head.len - 5];
         if (try dir.createDirPathStatus(io, ref_dir, .default_dir) == .created) {
             var diff: Diff = try .new(&delta, user, "", a, io);
             try diff.commit(io);
             try delta.commit(io);
         } else {
-            return diffs.update(env, pr, repo, dir, out, a, io);
+            return diffs.update(pr, &delta, dir, w, a, io);
         }
-
-        try pr.writeOptions(out, .refname(ref));
         var hash_buf: [512]u8 = undefined;
         try dir.writeFile(io, .{
-            .sub_path = ref,
+            .sub_path = ref_head,
             .data = try print(&hash_buf, "{f}\n", .{pr.new.text()}),
         });
+        try pr.writeOptions(w, .refname(ref_head));
     }
 
-    pub fn update(env: *const Env, pr: ProcRecv, repo: *const git.Repo, dir: Io.Dir, out: *Writer, a: Allocator, io: Io) !void {
-        _ = env;
-        const cmt = try repo.commit(pr.new, a, io);
-        _ = cmt;
-        const diff_id: usize = 12;
-        var b: [512]u8 = undefined;
-        const ref = print(&b, "refs/diffs/{}/head", .{diff_id}) catch unreachable;
-        const ref_dir = ref[0 .. ref.len - 5];
-
-        if (try dir.createDirPathStatus(io, ref_dir, .default_dir) == .created) {
-            // TODO write to refs/diffs/12 and then refs/extended/diffs/12/{head,rev-0}
-        } else {
-            // TODO find rev-* and set rev-*
+    pub fn update(
+        pr: ProcRecv,
+        delta: *const Delta,
+        dir: Io.Dir,
+        w: *Writer,
+        a: Allocator,
+        io: Io,
+    ) !void {
+        //const delta: Delta = try .open(repo_name, delta_id, a, io);
+        switch (delta.attach) {
+            .diff => {},
+            else => @panic("not implemented"),
         }
+        var diff: Diff = try Diff.open(delta.attach_target, a, io) orelse return error.DiffMissing;
+        diff.revision +%= 1;
+        diff.commit(io) catch {};
 
-        try pr.writeOptions(out, .refname(ref));
         var hash_buf: [512]u8 = undefined;
-        try dir.writeFile(io, .{
-            .sub_path = ref,
-            .data = try print(&hash_buf, "{f}\n", .{pr.new.text()}),
-        });
+        const target = try print(&hash_buf, "{f}\n", .{pr.new.text()});
+        var b: [512]u8 = undefined;
+        const ref_head = print(&b, "refs/diffs/{}/head", .{delta.index}) catch unreachable;
+        try dir.writeFile(io, .{ .sub_path = ref_head, .data = target });
+        const revision = print(&b, "refs/diffs/{}/rev-{}", .{ delta.index, diff.revision }) catch unreachable;
+        try dir.writeFile(io, .{ .sub_path = revision, .data = target });
+
+        try pr.writeOptions(w, .refname(ref_head));
+    }
+
+    pub fn updateHead(pr: ProcRecv, repo_name: []const u8, ref_str: []const u8, dir: Io.Dir, w: *Writer, a: Allocator, io: Io) !void {
+        if (cutPrefix(u8, ref_str, "refs/diffs/")) |num_head| {
+            if (cutSuffix(u8, num_head, "/head")) |num| {
+                const delta_id = parseInt(usize, num, 0) catch return error.InvalidDeltaId;
+                const delta: Delta = try .open(repo_name, delta_id, a, io);
+                return diffs.update(pr, &delta, dir, w, a, io);
+            }
+        }
     }
 };
 
@@ -229,7 +251,7 @@ pub fn procReceive(in: *Reader, out: *Writer, env: *const Env, a: Allocator, io:
                         try diffs.new(env, pr, &repo, dir, out, a, io);
                         continue;
                     } else if (endsWith(u8, base, "/head")) {
-                        try diffs.update(env, pr, &repo, dir, out, a, io);
+                        try diffs.updateHead(pr, env.repo.?, base, dir, out, a, io);
                         continue;
                     }
                 }
@@ -295,7 +317,7 @@ const Env = struct {
 
         var list: StringArrayHashMap(void) = .empty;
         if (map.contains("GIT_PUSH_OPTION_COUNT")) {
-            const count = std.fmt.parseInt(usize, map.get("GIT_PUSH_OPTION_COUNT").?, 0) catch return error.BadEnvCount;
+            const count = parseInt(usize, map.get("GIT_PUSH_OPTION_COUNT").?, 0) catch return error.BadEnvCount;
             if (count > 0) {
                 var b: [64]u8 = undefined;
                 for (0..count) |i| {
@@ -351,6 +373,8 @@ const endsWith = std.mem.endsWith;
 const startsWith = std.mem.startsWith;
 const splitScalar = std.mem.splitScalar;
 const cutPrefix = std.mem.cutPrefix;
+const cutSuffix = std.mem.cutSuffix;
+const parseInt = std.fmt.parseInt;
 const types = @import("types.zig");
 const Delta = types.Delta;
 const Diff = types.Diff;

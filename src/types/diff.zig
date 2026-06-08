@@ -3,6 +3,8 @@ state: State = .nos,
 created: i64,
 updated: i64,
 applies: bool = false,
+revision: usize = 0,
+source_hash: []const u8 = &.{},
 applies_hash: []const u8 = &.{},
 delta_hash: Types.DefaultHash,
 author: []const u8,
@@ -103,6 +105,22 @@ pub fn commit(d: Diff, io: Io) !void {
     try writerFn(&d, &fd_writer.interface);
     try fd_writer.interface.writeAll(d.patch.blob);
     try fd_writer.interface.flush();
+}
+
+pub const Revision = enum(usize) {
+    current = std.math.maxInt(usize),
+    _,
+};
+
+pub fn getPatchRev(d: *const Diff, rev: Revision, a: Allocator, _: Io) ![]u8 {
+    _ = d;
+    _ = a;
+    _ = rev;
+    return error.NotImplemented;
+}
+
+pub fn getPatch(d: *const Diff, a: Allocator, io: Io) ![]u8 {
+    return d.getPatchRev(.current, a, io);
 }
 
 const std = @import("std");
