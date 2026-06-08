@@ -33,6 +33,16 @@ pub const Attach = enum(u8) {
     remote = 5,
 };
 
+/// unstable api
+pub const Attachment = union(Attach) {
+    nos,
+    diff: Types.Diff,
+    issue,
+    commit: []const u8,
+    line: []const u8,
+    remote: []const u8,
+};
+
 const typeio = Types.readerWriter(Delta, .{
     .index = 0,
     .repo = &.{},
