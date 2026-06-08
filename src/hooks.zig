@@ -200,9 +200,9 @@ pub const diffs = struct {
         var hash_buf: [512]u8 = undefined;
         const target = try print(&hash_buf, "{f}\n", .{pr.new.text()});
         var b: [512]u8 = undefined;
-        const ref_head = print(&b, "refs/diffs/{}/head", .{delta.index}) catch unreachable;
+        const ref_head = print(&b, "refs/diffs/{}/head", .{delta.index}) catch return error.FileSystemFailed;
         try dir.writeFile(io, .{ .sub_path = ref_head, .data = target });
-        const revision = print(&b, "refs/diffs/{}/rev-{}", .{ delta.index, diff.revision }) catch unreachable;
+        const revision = print(&b, "refs/diffs/{}/rev-{}", .{ delta.index, diff.revision }) catch return error.FileSystemFailed;
         try dir.writeFile(io, .{ .sub_path = revision, .data = target });
 
         try pr.writeOptions(w, .refname(ref_head));
