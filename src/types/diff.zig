@@ -2,15 +2,15 @@ index: usize,
 state: State = .nos,
 created: i64,
 updated: i64,
-applies: bool = false,
 revision: usize = 0,
+base_hash: []const u8 = &.{},
 source_hash: []const u8 = &.{},
-applies_hash: []const u8 = &.{},
 delta_hash: Types.DefaultHash,
 author: []const u8,
 source_uri: ?[]const u8,
-patch: struct {
+patch: union(enum) {
     blob: []const u8,
+    repo: git.Sha,
 },
 
 const Diff = @This();
@@ -109,6 +109,7 @@ pub fn commit(d: Diff, io: Io) !void {
 
 pub const Revision = enum(usize) {
     first = 0,
+    prev = std.math.maxInt(usize) - 2,
     current = std.math.maxInt(usize) - 1,
     last = std.math.maxInt(usize),
     _,
@@ -123,15 +124,27 @@ pub const Revision = enum(usize) {
     }
 };
 
-pub fn getPatchRev(d: *const Diff, rev: Revision, a: Allocator, _: Io) !Patch {
-    _ = d;
-    _ = a;
-    _ = rev;
-    return error.NotImplemented;
+pub fn getPatchRev(d: *const Diff, rev: Revision, agent: *const git.Agent, io: Io) !Patch {
+    const src = "HEAD";
+    std.debug.print("revision {}\n", .{rev});
+    var b: [512]u8 = undefined;
+    const target: []const u8 = switch (rev) {
+        .first => print(&b, "{s}..refs/diffs/{d}/rev-0", .{ src, d.index }) catch unreachable,
+        .prev => print(&b, "{s}..refs/diffs/{d}/rev-{d}", .{ src, d.index, d.revision -| 1 }) catch unreachable,
+        .current => print(&b, "{s}..refs/diffs/{d}/head", .{ src, d.index }) catch unreachable,
+        // TODO find actual last
+        .last => print(&b, "{s}..refs/diffs/{d}/head", .{ src, d.index }) catch unreachable,
+        else => |num| print(&b, "{s}..refs/diffs/{d}/rev-{d}", .{ src, d.index, num }) catch unreachable,
+    };
+    std.debug.print("revision {} {s}\n", .{ rev, target });
+
+    // TODO verify patch and rev exists
+    const blob = agent.formatPatchRange(target, io) catch return error.ServerFault;
+    return .init(blob);
 }
 
-pub fn getPatch(d: *const Diff, a: Allocator, io: Io) !Patch {
-    return d.getPatchRev(.current, a, io);
+pub fn getPatch(d: *const Diff, agent: *const git.Agent, io: Io) !Patch {
+    return d.getPatchRev(.current, agent, io);
 }
 
 const std = @import("std");
@@ -141,6 +154,7 @@ const print = std.fmt.bufPrint;
 const allocPrint = std.fmt.allocPrint;
 const find = std.mem.indexOf;
 
+const git = @import("../git.zig");
 const Patch = @import("../Patch.zig");
 const Types = @import("../types.zig");
 const Delta = @import("delta.zig");

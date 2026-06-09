@@ -64,7 +64,7 @@ pub const RefMap = struct {
         return rm.map.count();
     }
 
-    pub fn get(rm: *const RefMap, name: []const u8) void {
+    pub fn get(rm: *const RefMap, name: []const u8) ?Ref {
         return rm.map.get(name);
     }
 

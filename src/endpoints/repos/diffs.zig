@@ -193,6 +193,7 @@ fn updatePatch(f: *Frame) Error!void {
     var delta = Delta.open(rd.name, idx, f.alloc, f.io) catch return error.Unknown;
 
     const author: []const u8 = &.{};
+    if (true) return error.Unrouteable; // TODO FIXME
     var diff: Diff = Diff.new(&delta, author, udata.patch, f.alloc, f.io) catch |err| {
         std.debug.print("unable to create new diff {}\n", .{err});
         unreachable;
@@ -326,7 +327,7 @@ pub fn directReply(ctx: *Frame) Error!void {
 
 pub fn patchStruct(a: Allocator, patch: *Patch, view_mode: PatchViewMode) !S.PatchHtml {
     patch.parse(a) catch |err| {
-        if (std.mem.indexOf(u8, patch.blob, "\nMerge: ") == null) {
+        if (find(u8, patch.blob, "\nMerge: ") == null) {
             std.debug.print("err: {any}\n", .{err});
             return err;
         } else {
@@ -764,7 +765,14 @@ pub fn simpleComment(line: []const u8, writer: *Writer, io: Io) !void {
     }
 }
 
-pub fn translateComment(comment: []const u8, patch: Patch, repo: *const Git.Repo, writer: *Writer, a: Allocator, io: Io) !bool {
+pub fn translateComment(
+    comment: []const u8,
+    patch: Patch,
+    repo: *const Git.Repo,
+    writer: *Writer,
+    a: Allocator,
+    io: Io,
+) !bool {
     var found_ref = false;
     var itr = splitScalar(u8, comment, '\n');
     const diffs: []Patch.Diff = patch.diffs orelse &.{};
@@ -826,17 +834,17 @@ fn view(f: *Frame) Error!void {
         error.DeltaDoesNotExist => return error.InvalidURI,
     };
 
-    const revision: ?u64 = if (f.uri.next()) |next|
-        if (eql(u8, next, "rev"))
-            if (f.uri.next()) |str|
-                parseInt(u64, str, 10) catch return error.InvalidURI
-            else
-                return error.InvalidURI
-        else
-            null
-    else switch (delta.attach) {
-        .nos => null,
-        .diff => delta.attach_target,
+    var revision: ?u64 = null;
+    if (f.uri.next()) |next| {
+        if (eql(u8, next, "rev")) {
+            if (f.uri.next()) |str| revision = parseInt(u64, str, 10) catch return error.InvalidURI;
+            return error.InvalidURI;
+        }
+    }
+
+    switch (delta.attach) {
+        .nos => {},
+        .diff => {},
         .issue => {
             var buf: [100]u8 = undefined;
             const loc = try bufPrint(&buf, "/repo/{s}/issues/{x}", .{ rd.name, delta.index });
@@ -846,8 +854,7 @@ fn view(f: *Frame) Error!void {
             std.debug.print("can't redirect attach {s}\n", .{@tagName(delta.attach)});
             return error.DataInvalid;
         },
-    };
-
+    }
     // TODO remove delta_id from call
     return viewDiffRevision(f, &delta, revision, delta_id);
 }
@@ -863,13 +870,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
     var repo = (repos.open(rd.name, vis, f.io) catch return error.DataInvalid) orelse return error.DataInvalid;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
     defer repo.raze(f.alloc, f.io);
-
     const head_commit: ?Git.Commit = repo.HEAD(f.alloc, f.io) catch null;
-
-    var diffM: ?Diff = if (rev) |r|
-        Diff.open(r, f.alloc, f.io) catch null
-    else
-        null;
 
     // meme saved to protect history
     //for ([_]Comment{ .{
@@ -883,9 +884,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
     //}
 
     var patch_formatted: ?S.PatchHtml = null;
-
-    var patch: ?Patch = null;
-    const curl_hint: S.DeltaFlavor.Diff.CurlHint = .{
+    var curl_hint: ?S.DeltaFlavor.Diff.CurlHint = .{
         .repo_name = .abx(rd.name),
         .diff_idx = .abx(delta_index),
         .base_ref = .abx(if (head_commit) |cmt| cmt.sha.text().slice()[0..8] else "base_commit"),
@@ -893,44 +892,47 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
         .host = .safe(f.request.host.?.valid() catch "127.0.0.1"),
     };
 
+    var messages: []S.CommentThreadHtml.Messages = &.{};
     var applies: bool = false;
-    if (diffM) |*diff| {
+    if (delta.attached(f.alloc, f.io)) |_dif| {
+        curl_hint = null;
+        const diff = _dif.diff;
+        var agent = repo.agent(f.alloc);
+
+        var patch = try diff.getPatchRev(if (rev) |r| .rev(r) else .current, &agent, f.io);
+
         if (std.mem.trim(u8, diff.patch.blob, &std.ascii.whitespace).len > 0) {
-            patch = .init(diff.patch.blob);
-            patch.?.revision = rev;
-            if (patchStruct(f.alloc, &patch.?, patch_view_mode)) |phtml| {
+            patch.revision = rev;
+            if (patchStruct(f.alloc, &patch, patch_view_mode)) |phtml| {
                 patch_formatted = phtml;
             } else |err| {
                 std.debug.print("Unable to generate patch {any}\n", .{err});
             }
             const cmt = repo.HEAD(f.alloc, f.io) catch return error.ServerFault;
-            if (cmt.sha.eql(.init(diff.applies_hash))) {
-                applies = diff.applies;
+            // TODO does this always apply? (If from git, it must)
+            if (cmt.sha.eql(.init(diff.base_hash))) {
+                applies = true;
             } else {
-                var agent = repo.agent(f.alloc);
-                if (agent.checkPatch(diff.patch.blob, f.io)) |_| {
+                if (agent.checkPatch(patch.blob, f.io)) |_| {
                     applies = true;
-                    diff.applies = true;
                 } else |err| {
                     std.debug.print("git apply failed {any}\n", .{err});
-                    diff.applies = false;
+                    applies = false;
                 }
 
-                diff.applies_hash = head_commit.?.sha.text().slice();
+                //diff.base_hash = head_commit.?.sha.text().slice();
                 diff.commit(f.io) catch return error.ServerFault;
             }
         }
+
+        messages = try delta_shared.genThreadMessages(delta, &repo, &patch, .{
+            .edit = f.user != null,
+        }, f.alloc, f.io);
+    } else |_| {
+        std.debug.print("Unable to find attached patch/diff\n", .{});
     }
 
     const now: i64 = Io.Clock.real.now(f.io).toSeconds();
-    const messages = try delta_shared.genThreadMessages(
-        delta,
-        &repo,
-        if (patch) |*p| p else null,
-        .{ .edit = f.user != null },
-        f.alloc,
-        f.io,
-    );
 
     const username = if (f.user) |usr| usr.username.? else "public";
 
@@ -958,11 +960,13 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
         .status = .safe(delta_shared.status(delta)),
         .created = .safe(try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.created, now)})),
         .updated = .safe(try allocPrint(f.alloc, "{f}", .{Humanize.unix(delta.updated, now)})),
-        .creator = if (delta.author) |author| try allocPrint(f.alloc, "{f}", .{abx.Html{ .text = author }}) else null,
+        .creator = if (delta.author) |author| try allocPrint(f.alloc, "{f}", .{
+            abx.Html{ .text = author },
+        }) else null,
         .delta_flavor = .{
             .diff = .{
                 .patch = patch_data,
-                .curl_hint = if (diffM == null) curl_hint else null,
+                .curl_hint = curl_hint,
                 .comments = .{ .messages = messages },
                 .comment_box = .{
                     .current_username = .abx(username),
@@ -1001,9 +1005,14 @@ fn list(f: *Frame) Error!void {
     const rules = try search.genRules(udata.q orelse "is:diff", f.alloc);
     var itr = Delta.searchRepo(rd.name, rules.items, f.io);
     var default_search_buf: [0xFF]u8 = undefined;
-    const search_str = if (udata.q) |q| allocPrint(f.alloc, "{f}", .{abx.Html{ .text = q }}) catch unreachable else try bufPrint(&default_search_buf, "repo:{s} is:diff", .{rd.name});
+    const search_str = if (udata.q) |q|
+        allocPrint(f.alloc, "{f}", .{abx.Html.abx(q)}) catch unreachable
+    else
+        try bufPrint(&default_search_buf, "repo:{s} is:diff", .{rd.name});
 
-    var body_header: S.BodyHeaderHtml = .{ .nav = .{ .nav_buttons = &(endpt_repos.navButtons(f) catch unreachable) } };
+    var body_header: S.BodyHeaderHtml = .{ .nav = .{
+        .nav_buttons = &(endpt_repos.navButtons(f) catch unreachable),
+    } };
     if (f.user) |usr| body_header.nav.nav_auth = usr.username.?;
     f.response_data.add(S.BodyHeaderHtml, f.alloc, &body_header) catch {};
 

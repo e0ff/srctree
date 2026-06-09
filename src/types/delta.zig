@@ -182,6 +182,22 @@ pub fn raze(_: Delta, _: std.mem.Allocator) void {
     // TODO implement raze
 }
 
+pub const Attached = union(enum) {
+    nos,
+    diff: Diff,
+};
+
+pub fn attached(d: *const Delta, a: Allocator, io: Io) !Attached {
+    return switch (d.attach) {
+        .nos => .nos,
+        .commit => unreachable,
+        .diff => .{ .diff = (try Diff.open(d.attach_target, a, io)) orelse return error.Missing },
+        .issue => unreachable,
+        .line => unreachable,
+        .remote => unreachable,
+    };
+}
+
 pub const Iterator = struct {
     dir: Io.Dir.Iterator,
 
@@ -222,6 +238,8 @@ pub fn searchRepo(repo: []const u8, rules: []const Tsearch.Rule, io: Io) RepoSea
 }
 
 test Delta {
+    _ = &std.testing.refAllDecls(Delta);
+
     const a = std.testing.allocator;
     const io = std.testing.io;
     var tempdir = std.testing.tmpDir(.{});
@@ -290,3 +308,4 @@ const Types = @import("../types.zig");
 const Thread = Types.Thread;
 const Message = Types.Message;
 const Tsearch = @import("search.zig");
+const Diff = @import("diff.zig");

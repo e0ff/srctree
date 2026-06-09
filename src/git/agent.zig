@@ -101,7 +101,13 @@ pub fn formatPatch(agent: Agent, sha: Sha, io: Io) ![]u8 {
 }
 
 pub fn formatPatchRange(agent: Agent, range: []const u8, io: Io) ![]u8 {
-    return try agent.exec(&.{ "git", "format-patch", "--histogram", "--stdout", range }, io);
+    return try agent.exec(&.{
+        "git",
+        "format-patch",
+        "--histogram",
+        "--stdout",
+        range,
+    }, io);
 }
 
 pub fn checkPatch(agent: Agent, patch: []const u8, io: Io) !?[]u8 {

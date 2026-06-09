@@ -267,7 +267,7 @@ pub const Agent = struct {
     fn pullUpstream(name: []const u8, repo: *Git.Repo, a: Allocator, io: Io) !void {
         if (repo.findRemote("upstream")) |_| {
             var update = try getUpdated(repo.dir, io);
-            const ref = repo.refs.map.get("HEAD") orelse return {};
+            const ref = repo.refs.get("HEAD") orelse return {};
             const head = switch (ref) {
                 .ref => |r| r,
                 else => return error.InvalidRepoHead,
