@@ -52,7 +52,7 @@ fn new(ctx: *verse.Frame) Error!void {
     var page = IssueNewPage.init(.{
         .meta_head = meta_head,
         .body_header = body_header,
-        .flavor = .{ .default = .{} },
+        .flavor = .{ .default = true },
     });
     try ctx.sendPage(&page);
 }
@@ -67,7 +67,7 @@ fn newRemote(ctx: *verse.Frame) Error!void {
     var page = IssueNewPage.init(.{
         .meta_head = meta_head,
         .body_header = body_header,
-        .flavor = .{ .remote = .{} },
+        .flavor = .{ .remote = true },
     });
     try ctx.sendPage(&page);
 }

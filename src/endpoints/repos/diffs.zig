@@ -974,7 +974,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
                     .diff_id = try allocPrint(f.alloc, "{}", .{delta.attach_target}),
                     .action_buttons = delta_shared.actionButtons(f, delta)[0..2],
                 },
-                .patch_warning = if (applies) null else .{},
+                .patch_warning = applies,
             },
         },
     });

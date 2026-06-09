@@ -28,7 +28,7 @@ fn default(f: *Frame) Error!void {
         .meta_head = .{ .open_graph = .{} },
         .body_header = bhdr.*,
         .active_admin = .default,
-        .admin_view = .{ .default = .{} },
+        .admin_view = .{ .default = true },
     });
     try f.sendPage(&page);
 }
@@ -86,7 +86,7 @@ fn remotes(f: *Frame) Error!void {
         .meta_head = .{ .open_graph = .{} },
         .body_header = bhdr.*,
         .active_admin = .remotes,
-        .admin_view = .{ .admin_remotes = .{} },
+        .admin_view = .{ .admin_remotes = true },
     });
     try f.sendPage(&page);
 }
@@ -158,7 +158,7 @@ const Repo = struct {
             .meta_head = .{ .open_graph = .{} },
             .body_header = bhdr.*,
             .active_admin = .repo_create,
-            .admin_view = .{ .repo_new = .{} },
+            .admin_view = .{ .repo_new = true },
         });
         try f.sendPage(&page);
     }
@@ -173,7 +173,7 @@ const Repo = struct {
             .meta_head = .{ .open_graph = .{} },
             .body_header = bhdr.*,
             .active_admin = .repo_delete,
-            .admin_view = .{ .repo_delete = .{} },
+            .admin_view = .{ .repo_delete = true },
         });
         try f.sendPage(&page);
     }

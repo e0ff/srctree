@@ -12,27 +12,19 @@ pub const verse_routes = [_]Match{
         .{ .name = "ClaudeBot", .allow = false }, // aggressive, selfish
         .{ .name = "GPTBot", .allow = false }, // aggressive, selfish
         .{ .name = "OAI-SearchBot", .allow = false },
-        //
+        .{ .name = "meta-externalagent", .allow = false }, // agressive
+
         // If you're the kind of person who enables this, you're part of the problem
         .{ .name = "Amazonbot", .allow = false }, // aggressive, malicious
         .{ .name = "Amzn-SearchBot", .allow = false }, //  malicious
         .{ .name = "Amzn-User", .allow = false }, // malicious
-        //
+
         .{ .name = "AhrefsBot", .allow = false }, // selfish
         .{ .name = "dotbot", .allow = false }, // selfish
         .{ .name = "PerplexityBot", .allow = false },
         // Disallowed for being too aggressive, and substituting it's own crawl delay
         .{ .name = "MJ12bot", .allow = false, .extra = "Crawl-Delay: 90\n" },
-        .{
-            .name = "ImagesiftBot",
-            .allow = true,
-            .extra =
-            \\Disallow: /repo/*/commit/*
-            \\Disallow: /repo/*/blame/*
-            \\Disallow: /repo/*/blob/*
-            \\
-            ,
-        },
+        .{ .name = "ImagesiftBot", .allow = true },
         .{ .name = "AcademicBotRTU", .allow = false },
         .{ .name = "CCBot", .allow = false }, // One day I'll learn to not assume good faith
     }, .{ .extra_rules = "Disallow: /*?*\nDisallow: /repo/*/blame/*\n" }),
@@ -60,7 +52,7 @@ const E404Page = template.PageData("4XX.html");
 fn notFound(vrs: *Frame) Router.Error!void {
     log.warn("404 for route", .{});
     vrs.status = .not_found;
-    var page = E404Page.init(.{});
+    var page = E404Page.init(true);
     vrs.sendPage(&page) catch unreachable;
 }
 
@@ -90,6 +82,10 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                     log.err("Dropping malicious traffic", .{});
                     return Router.defaultResponse(.not_found);
                 },
+                .metaexternalagent => {
+                    log.err("Dropping malicious traffic", .{});
+                    return Router.defaultResponse(.not_found);
+                },
                 else => {
                     if (bot.malicious) {
                         log.err("Dropping malicious traffic", .{});
@@ -105,7 +101,7 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
 
                 if ((botdetect.score >= 1 or (real_ua.agent == .bot and
                     real_ua.agent.bot.name == .malicious)) and
-                    ua.agent.browser.version != 128)
+                    ua.agent.browser.version != 128) // hastur
                 {
                     log.err("Dropping malicious traffic", .{});
                     fr.dumpDebugData(.{});
