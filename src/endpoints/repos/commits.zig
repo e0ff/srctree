@@ -417,7 +417,7 @@ const Datetime = @import("../../datetime.zig");
 const Git = @import("../../git.zig");
 const Highlight = @import("../../syntax-highlight.zig");
 const Humanize = @import("../../humanize.zig");
-const Patch = @import("../../patch.zig");
+const Patch = @import("../../Patch.zig");
 const repos = @import("../../repos.zig");
 const delta_shared = @import("../delta.zig");
 

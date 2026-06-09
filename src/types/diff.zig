@@ -130,5 +130,6 @@ const bufPrint = std.fmt.bufPrint;
 const allocPrint = std.fmt.allocPrint;
 const indexOf = std.mem.indexOf;
 
+const Patch = @import("../Patch.zig");
 const Types = @import("../types.zig");
 const Delta = @import("delta.zig");

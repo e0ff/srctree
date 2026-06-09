@@ -5,7 +5,7 @@ revision: ?u64 = null,
 
 const Patch = @This();
 
-pub const Diff = @import("patch/Diff.zig");
+pub const Diff = @import("Patch/Diff.zig");
 
 pub const Split = struct {
     left: []Diff.Line,

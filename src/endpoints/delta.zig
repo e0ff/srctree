@@ -267,7 +267,7 @@ const Diff = Types.Diff;
 const CommentsMeta = Delta.CommentsMeta;
 const Humanize = @import("../humanize.zig");
 const Repo = @import("../git.zig").Repo;
-const Patch = @import("../patch.zig");
+const Patch = @import("../Patch.zig");
 const events = @import("../events.zig");
 
 const diffs_ep = @import("repos/diffs.zig");
