@@ -83,12 +83,12 @@ pub fn open(index: usize, a: Allocator, io: Io) !?Diff {
     if (index > max) return null;
 
     var buf: [512]u8 = undefined;
-    const filename = try std.fmt.bufPrint(&buf, "{x}.diff", .{index});
+    const filename = try print(&buf, "{x}.diff", .{index});
     var reader = try Types.loadDataReader(.diffs, filename, a, io);
     var d: Diff = readerFn(&reader);
 
     // TODO reader.buffered();
-    if (indexOf(u8, reader.buffer, "\n\n")) |start| {
+    if (find(u8, reader.buffer, "\n\n")) |start| {
         d.patch.blob = reader.buffer[start..];
     } else d.patch.blob = &.{};
 
@@ -97,7 +97,7 @@ pub fn open(index: usize, a: Allocator, io: Io) !?Diff {
 
 pub fn commit(d: Diff, io: Io) !void {
     var buf: [512]u8 = undefined;
-    const filename = try std.fmt.bufPrint(&buf, "{x}.diff", .{d.index});
+    const filename = try print(&buf, "{x}.diff", .{d.index});
     const file = try Types.commit(.diffs, filename, io);
     defer file.close(io);
     var w_b: [2048]u8 = undefined;
@@ -108,27 +108,38 @@ pub fn commit(d: Diff, io: Io) !void {
 }
 
 pub const Revision = enum(usize) {
-    current = std.math.maxInt(usize),
+    first = 0,
+    current = std.math.maxInt(usize) - 1,
+    last = std.math.maxInt(usize),
     _,
+
+    pub fn rev(u: usize) Revision {
+        return @enumFromInt(u);
+    }
+
+    pub fn fromStr(str: []const u8) !Revision {
+        const u: usize = std.fmt.parseInt(usize, str, 0) catch return error.NotANumber;
+        return .rev(u);
+    }
 };
 
-pub fn getPatchRev(d: *const Diff, rev: Revision, a: Allocator, _: Io) ![]u8 {
+pub fn getPatchRev(d: *const Diff, rev: Revision, a: Allocator, _: Io) !Patch {
     _ = d;
     _ = a;
     _ = rev;
     return error.NotImplemented;
 }
 
-pub fn getPatch(d: *const Diff, a: Allocator, io: Io) ![]u8 {
+pub fn getPatch(d: *const Diff, a: Allocator, io: Io) !Patch {
     return d.getPatchRev(.current, a, io);
 }
 
 const std = @import("std");
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
-const bufPrint = std.fmt.bufPrint;
+const print = std.fmt.bufPrint;
 const allocPrint = std.fmt.allocPrint;
-const indexOf = std.mem.indexOf;
+const find = std.mem.indexOf;
 
 const Patch = @import("../Patch.zig");
 const Types = @import("../types.zig");
