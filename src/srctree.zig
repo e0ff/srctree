@@ -50,7 +50,6 @@ pub const endpoints = verse.Endpoints(.{
 const E404Page = template.PageData("4XX.html");
 
 fn notFound(vrs: *Frame) Router.Error!void {
-    log.warn("404 for route", .{});
     vrs.status = .not_found;
     var page = E404Page.init(true);
     vrs.sendPage(&page) catch unreachable;
@@ -58,6 +57,14 @@ fn notFound(vrs: *Frame) Router.Error!void {
 
 fn debug(_: *Frame) Router.Error!void {
     return error.Unrouteable;
+}
+
+fn dropRequest(f: *Frame) BuildFn {
+    log.err("Dropping malicious traffic", .{});
+    f.dumpDebugData(.{});
+    if (f.request.user_agent) |*ua|
+        ua.dumpValidation(f.request);
+    return notFound;
 }
 
 fn userAgentResolution(fr: *Frame) ?BuildFn {
@@ -74,62 +81,43 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                 .googlebot => return null,
                 .bingbot => return null,
                 .unknown => {
-                    if (std.mem.indexOf(u8, fr.request.user_agent.?.string, "SearchBot/1.0") == null) return null;
-                    log.err("Dropping malicious traffic", .{});
-                    return Router.defaultResponse(.not_found);
+                    if (find(u8, fr.request.user_agent.?.string, "SearchBot/1.0") == null) return null;
+                    return dropRequest(fr);
                 },
-                .gptbot => {
+                .gptbot, .metaexternalagent => return dropRequest(fr),
+
+                else => if (bot.malicious) {
                     log.err("Dropping malicious traffic", .{});
-                    return Router.defaultResponse(.not_found);
-                },
-                .metaexternalagent => {
-                    log.err("Dropping malicious traffic", .{});
-                    return Router.defaultResponse(.not_found);
-                },
-                else => {
-                    if (bot.malicious) {
-                        log.err("Dropping malicious traffic", .{});
-                        fr.dumpDebugData(.{});
-                        ua.dumpValidation(fr.request);
-                        return Router.defaultResponse(.forbidden);
-                    }
+                    fr.dumpDebugData(.{});
+                    ua.dumpValidation(fr.request);
+                    return Router.defaultResponse(.forbidden);
                 },
             },
             .browser => |bwsr| {
                 const real_ua = ua.validate(fr.request);
                 log.warn("Claims to be a browser\n", .{});
 
+                // hastur
                 if ((botdetect.score >= 1 or (real_ua.agent == .bot and
                     real_ua.agent.bot.name == .malicious)) and
-                    ua.agent.browser.version != 128) // hastur
-                {
-                    log.err("Dropping malicious traffic", .{});
-                    fr.dumpDebugData(.{});
-                    ua.dumpValidation(fr.request);
-                    return Router.defaultResponse(.not_found);
-                }
-
-                if ((bwsr.name == .chrome or bwsr.name == .edge) and bwsr.version <= 137 and bwsr.version >= 130) {
-                    log.err("Dropping malicious traffic", .{});
-                    fr.dumpDebugData(.{});
-                    ua.dumpValidation(fr.request);
-                    return Router.defaultResponse(.not_found);
-                }
+                    ua.agent.browser.version != 128) return dropRequest(fr);
+                // super abusive bot
+                if ((bwsr.name == .chrome or bwsr.name == .edge) and
+                    bwsr.version <= 137 and bwsr.version >= 130)
+                    return dropRequest(fr);
             },
-            .unknown => if (startsWith(u8, fr.request.user_agent.?.string, "Opera/")) {
-                log.err("Dropping malicious traffic", .{});
-                return Router.defaultResponse(.not_found);
-            },
+            .unknown => if (startsWith(u8, fr.request.user_agent.?.string, "Opera/"))
+                return dropRequest(fr),
             .script => {},
         }
         fr.dumpDebugData(.{});
         ua.dumpValidation(fr.request);
         return null;
-    } else {
-        log.err("No User agent for request\n\n\n\n", .{});
-        fr.dumpDebugData(.{});
-        return null;
     }
+
+    log.err("No User agent for request\n\n\n\n", .{});
+    fr.dumpDebugData(.{});
+    return null;
 }
 
 fn builder(fr: *Frame, call: BuildFn) void {
@@ -228,6 +216,8 @@ test "fuzzing" {
 
 const std = @import("std");
 const eql = std.mem.eql;
+const find = std.mem.find;
+
 const startsWith = std.mem.startsWith;
 const log = std.log.scoped(.srctree);
 

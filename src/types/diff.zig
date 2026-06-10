@@ -152,7 +152,7 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const print = std.fmt.bufPrint;
 const allocPrint = std.fmt.allocPrint;
-const find = std.mem.indexOf;
+const find = std.mem.find;
 
 const git = @import("../git.zig");
 const Patch = @import("../Patch.zig");

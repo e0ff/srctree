@@ -20,12 +20,8 @@ pub const Split = struct {
                     try left.append(a, line);
                     try right.append(a, line);
                 },
-                .add => {
-                    try right.append(a, line);
-                },
-                .del => {
-                    try left.append(a, line);
-                },
+                .add => try right.append(a, line),
+                .del => try left.append(a, line),
                 .ctx => {
                     if (left.items.len > right.items.len) {
                         const rcount = left.items.len - right.items.len;
@@ -99,15 +95,11 @@ pub fn patchStat(p: Patch) Stat {
 
 fn fetch(uri: []const u8, a: Allocator, io: Io) ![]u8 {
     var client = std.http.Client{ .allocator = a, .io = io };
-    //defer client.deinit();
+    defer client.deinit();
 
     var response: std.ArrayList(u8) = .empty;
     defer response.deinit(a);
-    const request = client.fetch(.{
-        .location = .{ .url = uri },
-        //.response_storage = .{ .dynamic = &response },
-        //.max_append_size = 0xffffff,
-    });
+    const request = client.fetch(.{ .location = .{ .url = uri } });
     if (request) |req| {
         log.err("request code {}\n", .{req.status});
         log.err("request body {s}\n", .{response.items});
@@ -120,28 +112,27 @@ fn fetch(uri: []const u8, a: Allocator, io: Io) ![]u8 {
     if (curl.code != 200) return error.UnexpectedResponseCode;
 
     if (curl.body) |b| return b;
-    return error.EpmtyReponse;
+    return error.EmptyReponse;
 }
 
 pub fn fromRemote(uri: []const u8, a: Allocator, io: Io) !Patch {
-    return Patch{
-        .blob = try fetch(uri, a, io),
-    };
+    return Patch{ .blob = try fetch(uri, a, io) };
 }
 
 fn lineNumberFromHeader(str: []const u8) !Diff.Line.Header {
     assert(startsWith(u8, str, "@@ -"));
     var idx: usize = 4;
-    const left: u32 = if (indexOfAnyPos(u8, str, idx, " ,")) |end|
+    const left: u32 = if (findAnyPos(u8, str, idx, " ,")) |end|
         try parseInt(u32, str[idx..end], 10)
     else
         return error.InvalidHeader;
 
     idx = indexOfScalarPos(u8, str, idx, '+') orelse return error.InvalidHeader;
-    const right: u32 = if (indexOfAnyPos(u8, str, idx, " ,")) |end|
+    const right: u32 = if (findAnyPos(u8, str, idx, " ,")) |end|
         try parseInt(u32, str[idx..end], 10)
     else
         return error.InvalidHeader;
+
     return .{ .left = left, .right = right, .text = str };
 }
 
@@ -265,7 +256,7 @@ const startsWith = std.mem.startsWith;
 const assert = std.debug.assert;
 const indexOfPos = std.mem.indexOfPos;
 const indexOfScalarPos = std.mem.indexOfScalarPos;
-const indexOfAnyPos = std.mem.indexOfAnyPos;
+const findAnyPos = std.mem.findAnyPos;
 const splitScalar = std.mem.splitScalar;
 const allocPrint = std.fmt.allocPrint;
 const parseInt = std.fmt.parseInt;

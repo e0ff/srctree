@@ -31,14 +31,10 @@ pub fn router(ctx: *Frame) Route.RoutingError!Route.BuildFn {
     if (isHex(verb)) |_| {
         var uri_d = ctx.uri;
         _ = uri_d.next();
-        if (uri_d.peek()) |action| {
+        if (uri_d.peek()) |action|
             if (eql(u8, action, "direct_reply")) return directReply;
-        }
 
-        if (ctx.request.method == .POST)
-            return updatePatch
-        else
-            return view;
+        return if (ctx.request.method == .POST) updatePatch else view;
     }
 
     return Route.defaultRouter(ctx, &routes);
@@ -82,10 +78,6 @@ fn newPOST(f: *Frame) Error!void {
 }
 
 fn pendingNew(f: *Frame) Error!void {
-    //var patch_network: ?S.DiffNewHtml.PatchNetwork = null;
-    //var patch_uri: ?S.DiffNewHtml.PatchUri = null;
-    //var patch_paste: ?S.DiffNewHtml.PatchPaste = null;
-    //var patch_curl: ?S.DiffNewHtml.PatchCurl = null;
     var title: ?[]const u8 = null;
     var desc: ?[]const u8 = null;
 
@@ -99,66 +91,30 @@ fn pendingNew(f: *Frame) Error!void {
         const udata = post.validate(DiffCreateReq) catch return error.DataInvalid;
         title = udata.title;
         desc = udata.desc;
-
-        if (udata.from_paste) |_| {
-            //patch_paste = .{};
-        } else if (udata.from_network) |_| {
-            //const network_remotes = try f.alloc.alloc(S.DiffNewHtml.PatchNetwork.Remotes, repo.remotes.count());
-            //for (repo.remotes.keys(), repo.remotes.values(), network_remotes) |name, src, *dst| {
-            //    dst.* = .{
-            //        .value = .abx(name),
-            //        .name = .abx(try allocPrint(f.alloc, "{f}", .{std.fmt.alt(src, .formatDiff)})),
-            //    };
-            //}
-
-            //patch_network = .{
-            //    .remotes = network_remotes,
-            //    .branches = &.{
-            //        .{ .value = .safe("main"), .name = .safe("main") },
-            //        .{ .value = .safe("develop"), .name = .safe("develop") },
-            //        .{ .value = .safe("master"), .name = .safe("master") },
-            //    },
-            //};
-        } else if (udata.patch_uri) |_| {
-            //patch_uri = .{};
-        } else {
-            //patch_curl = .{};
-        }
-    } else {
-        //patch_curl = .{};
     }
+
     const upstream: ?S.BaseRepoHeaderHtml.Upstream = if (repo.findRemote("upstream")) |up| .{
         .href = .safe(try allocPrint(f.alloc, "{f}", .{std.fmt.alt(up, .formatLink)})),
     } else null;
 
     var body_header: S.BodyHeaderHtml = .{ .nav = .{ .nav_buttons = &try RepoEndpoint.navButtons(f) } };
-    if (f.user) |usr| {
-        body_header.nav.nav_auth = usr.username.?;
-    }
+    if (f.user) |usr| body_header.nav.nav_auth = usr.username.?;
+    const host = try (f.request.host orelse return error.DataMissing).valid();
+
     var page = DiffNewHtml.init(.{
         .meta_head = .{ .open_graph = .{} },
         .body_header = body_header,
         .repo_header = .{
             .repo_name = .abx(routing_data.name),
             .description = .abx(repo.description(f.alloc, f.io) catch ""),
-            .git_uri = .{
-                .host = .safe(try (f.request.host orelse return error.DataMissing).valid()),
-                .repo_name = .abx(routing_data.name),
-            },
+            .git_uri = .{ .host = .safe(host), .repo_name = .abx(routing_data.name) },
             .upstream = upstream,
             .blame = null,
         },
-        .push_uri = .{
-            .host = .safe(try (f.request.host orelse return error.DataMissing).valid()),
-            .repo_name = .safe(routing_data.name),
-        },
+        .push_uri = .{ .host = .safe(host), .repo_name = .safe(routing_data.name) },
         .err = null,
         .title = title,
         .desc = desc,
-        //.patch_network = patch_network,
-        //.patch_uri = patch_uri,
-        //.patch_paste = patch_paste,
-        //.patch_curl = patch_curl,
     });
 
     try f.sendPage(&page);
@@ -177,7 +133,6 @@ const DiffUpdateReq = struct {
 };
 
 fn updatePatch(f: *Frame) Error!void {
-    std.debug.print("update\n", .{});
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
 
     const delta_id = f.uri.next().?;
@@ -185,9 +140,8 @@ fn updatePatch(f: *Frame) Error!void {
 
     const post = f.request.data.post orelse return error.DataMissing;
     std.debug.print("post {any}\n", .{post});
-    for (post.items) |itm| {
-        std.debug.print("post itm {any}\n", .{itm});
-    }
+    for (post.items) |itm| std.debug.print("post itm {any}\n", .{itm});
+
     const udata = post.validate(DiffUpdateReq) catch return error.DataInvalid; // TODO return custom text for curl
 
     var delta = Delta.open(rd.name, idx, f.alloc, f.io) catch return error.Unknown;
@@ -199,7 +153,7 @@ fn updatePatch(f: *Frame) Error!void {
         unreachable;
     };
     diff.state = .curl;
-    diff.commit(f.io) catch unreachable;
+    diff.commit(f.io) catch {};
 }
 
 fn createDiffCore(rd: RouteData, req: DiffCreateReq, user: []const u8, a: Allocator, io: Io) !usize {
@@ -270,6 +224,8 @@ const ErrStrs = union(enum) {
 
 fn createError(f: *Frame, udata: DiffCreateReq, comptime err: ErrStrs) Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+
+    const host = try (f.request.host orelse return error.DataMissing).valid();
     var page = DiffNewHtml.init(.{
         .meta_head = .{ .open_graph = .{} },
         .body_header = .{ .nav = .{ .nav_buttons = &try RepoEndpoint.navButtons(f) } },
@@ -277,26 +233,16 @@ fn createError(f: *Frame, udata: DiffCreateReq, comptime err: ErrStrs) Error!voi
             .remote_error => |str| .{ .error_string = .safe("Unable to fetch patch from remote (" ++ str ++ ")") },
             else => .{ .error_string = .safe("error") },
         },
-        .title = try std.fmt.allocPrint(f.alloc, "{f}", .{abx.Html{ .text = udata.title }}),
-        .desc = try std.fmt.allocPrint(f.alloc, "{f}", .{abx.Html{ .text = udata.desc }}),
+        .title = try allocPrint(f.alloc, "{f}", .{abx.Html.abx(udata.title)}),
+        .desc = try allocPrint(f.alloc, "{f}", .{abx.Html.abx(udata.desc)}),
         .repo_header = .{
             .repo_name = .safe(rd.name),
             .description = .safe(""),
-            .git_uri = .{
-                .host = .safe(try (f.request.host orelse return error.DataMissing).valid()),
-                .repo_name = .abx(rd.name),
-            },
+            .git_uri = .{ .host = .safe(host), .repo_name = .abx(rd.name) },
             .upstream = null, // TODO do we need a button here?
             .blame = null,
         },
-        .push_uri = .{
-            .host = .safe(try (f.request.host orelse return error.DataMissing).valid()),
-            .repo_name = .safe(rd.name),
-        },
-        //.patch_network = if (udata.network) |_| null else null, // TODO fixme
-        //.patch_uri = if (udata.patch_uri) |uri| .{ .uri = try std.fmt.allocPrint(f.alloc, "{f}", .{abx.Html{ .text = uri }}) } else null,
-        //.patch_paste = if (udata.patch) |pst| .{ .patch_blob = try std.fmt.allocPrint(f.alloc, "{f}", .{abx.Html{ .text = pst }}) } else null,
-        //.patch_curl = if (udata.via_curl) |_| .{} else null,
+        .push_uri = .{ .host = .safe(host), .repo_name = .safe(rd.name) },
     });
 
     try f.sendPage(&page);
