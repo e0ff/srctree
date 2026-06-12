@@ -50,6 +50,7 @@ pub const Config = struct {
     pub const SrcTree = struct {
         pinned: ?bool,
         heatmapexcluded: ?bool,
+        anonpushenabled: ?bool,
     };
 };
 
@@ -111,7 +112,7 @@ pub fn loadData(self: *Repo, a: Allocator, io: Io) !void {
     try self.loadRefs(a, io);
 }
 
-fn loadConfig(self: *Repo, a: Allocator, io: Io) !void {
+pub fn loadConfig(self: *Repo, a: Allocator, io: Io) !void {
     const file = try self.dir.openFile(io, "config", .{});
     defer file.close(io);
     const len = try file.length(io);

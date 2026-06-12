@@ -163,7 +163,10 @@ fn builder(fr: *Frame, call: BuildFn) void {
     return call(fr) catch |err| switch (err) {
         error.InvalidURI => builder(fr, notFound), // TODO catch inline
         error.WriteFailed => log.err("Unexpected WriteFailure", .{}),
-        error.Unrouteable => log.err("Unrouteable", .{}),
+        error.Unrouteable => {
+            log.err("Unrouteable", .{});
+            unreachable;
+        },
         error.NotImplemented, error.Unknown => {
             log.err("Unexpected error '{}'", .{err});
             if (@import("builtin").mode == .Debug) unreachable;

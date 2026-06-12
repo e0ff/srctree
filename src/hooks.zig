@@ -251,19 +251,19 @@ pub fn procReceive(in: *Reader, out: *Writer, env: *const Env, a: Allocator, io:
                         try diffs.updateHead(pr, env.repo.?, base, dir, out, a, io);
                         continue;
                     }
-                }
-                if (!env.authenticated) {
+                } else if (!env.authenticated) {
                     try pr.nak("unauthenticated (invalid target)", out);
                     return error.PushDenied;
+                } else {
+                    try pr.fallThrough(out);
                 }
-                try pr.fallThrough(out);
+            } else {
+                try pr.nak(if (!env.authenticated)
+                    "unauthenticated (invalid target)"
+                else
+                    "invalid ref", out);
+                return error.PushDenied;
             }
-
-            try pr.nak(if (!env.authenticated)
-                "unauthenticated (invalid target)"
-            else
-                "invalid ref", out);
-            return error.PushDenied;
         },
         else => return {},
     } else |e| switch (e) {

@@ -6,10 +6,14 @@ pub const endpoints = [_]Router.Match{
         Router.ALL("refs", gitHttp),
     }),
     Router.ALL("git-upload-pack", uploadPack),
+    Router.ANY("git-receive-pack", receivePack),
 };
 
-pub fn router(ctx: *Frame) Router.RoutingError!Router.BuildFn {
-    std.debug.print("gitweb router {any} {s}\n", .{ ctx.request.method, ctx.uri.peek().? });
+pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
+    _ = f.uri.next(); // repo
+    _ = f.uri.next(); // name
+    // target
+    std.debug.print("gitweb router {any} {s}\n", .{ f.request.method, f.uri.peek().? });
     return gitHttp;
 }
 
@@ -19,10 +23,15 @@ pub fn router(ctx: *Frame) Router.RoutingError!Router.BuildFn {
 
 fn gitHttp(f: *Frame) Error!void {
     const qstr = f.request.data.query.bytes;
-    if (eql(u8, qstr, "service=git-receive-pack"))
+    const uri = f.uri.next() orelse &.{};
+    std.debug.print("uri {s}\n", .{uri});
+    if (eql(u8, qstr, "service=git-receive-pack") or eql(u8, uri, "git-receive-pack"))
         return receivePack(f);
 
-    return uploadPack(f);
+    if (eql(u8, qstr, "service=git-upload-pack") or eql(u8, uri, "git-upload-pack"))
+        return uploadPack(f);
+
+    return error.Unrouteable;
 }
 
 fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
@@ -145,7 +154,21 @@ fn receivePackInternal(f: *Frame) Error!void {
 }
 
 fn receivePackExternal(f: *Frame) Error!void {
+    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
     const gz_encoded = gzipEncoded(f);
+
+    if (f.user == null) {
+        // TODO visibility
+        var repo = (repos.open(rd.name, .public_only, f.io) catch return error.ServerFault) orelse return error.InvalidURI;
+        repo.loadConfig(f.alloc, f.io) catch return error.ServerFault;
+        if (repo.config.?.srctree) |cfg| {
+            if (cfg.anonpushenabled) |enabled| {
+                if (!enabled)
+                    return error.Unauthorized;
+            } else return error.Unauthorized;
+        } else return error.Unauthorized;
+    }
+
     var child = try spawn(f);
     const stdin = child.stdin orelse return error.ServerFault;
     if (f.request.data.post) |pd| {
@@ -269,3 +292,4 @@ const Router = verse.Router;
 const Error = Router.Error;
 
 const git = @import("git.zig");
+const repos = @import("repos.zig");

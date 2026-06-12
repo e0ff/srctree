@@ -42,6 +42,7 @@ pub const RepoRouter = struct {
         artifacts,
         diff,
         diffs,
+        docs,
         hook,
         issue,
         issues,
@@ -59,7 +60,7 @@ pub const RepoRouter = struct {
 
         // gitweb endpoints
         info,
-        objects,
+        objects, // TODO objects may only need to exist for dumb clients.
         @"git-upload-pack",
         @"git-receive-pack",
 
