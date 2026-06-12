@@ -70,6 +70,15 @@ fn dropRequest(f: *Frame) BuildFn {
 fn userAgentResolution(fr: *Frame) ?BuildFn {
     const botdetect: verse.Robots = .init(fr.request);
     if (fr.user != null) return null;
+
+    // Annoying abuse I found
+    if (fr.request.accept_language.zh >= 1.0 and fr.request.accept_language.en == 0 and
+        fr.request.accept_encoding.gzip == true and
+        fr.request.accept_encoding.br == false and fr.request.accept_encoding.zstd == false)
+    {
+        return dropRequest(fr);
+    }
+
     if (fr.request.user_agent) |*ua| {
         if (eql(u8, fr.request.uri, "/robots.txt")) {
             fr.dumpDebugData(.{});
