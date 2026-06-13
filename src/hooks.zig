@@ -187,7 +187,7 @@ pub const diffs = struct {
         io: Io,
     ) !void {
         switch (delta.attach) {
-            .diff => {},
+            .nos, .diff => {},
             else => @panic("not implemented"),
         }
         var diff: Diff = try Diff.open(delta.attach_target, a, io) orelse return error.DiffMissing;
