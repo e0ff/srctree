@@ -70,8 +70,15 @@ const Journal = struct {
 
     pub fn build(j: *Journal, a: Allocator, io: Io) !void {
         for (j.repos.items) |*repo| {
-            j.buildScribe(repo, a, io) catch |err| {
-                log.warn("unable to build the commit list for repo {s} [error {}]", .{ repo.name, err });
+            j.buildScribe(repo, a, io) catch |err| switch (err) {
+                error.RefMissing => {
+                    log.debug("Error building commit list for repo {s} (new repo?)", .{repo.name});
+                    continue;
+                },
+                else => {
+                    log.warn("unable to build the commit list for repo {s} [error {}]", .{ repo.name, err });
+                    continue;
+                },
             };
             j.cachedHeatMap(repo, a, io) catch |err| {
                 log.warn("unable to build journal for repo {s} [error {}]", .{ repo.name, err });
@@ -121,9 +128,16 @@ const Journal = struct {
         if (j.email.len < 5) return;
 
         // TODO return empty hits here
-        const commit = jrepo.repo.HEAD(a, io) catch |err| {
-            log.warn("Error building commit list on repo {s} because {}", .{ jrepo.name, err });
-            return;
+        const commit = jrepo.repo.HEAD(a, io) catch |err| switch (err) {
+            // We assume the repo is actually just new/empty
+            error.RefMissing => {
+                log.debug("Error building commit list for repo {s} (new repo?)", .{jrepo.name});
+                return;
+            },
+            else => {
+                log.warn("Error building commit list on repo {s} because {}", .{ jrepo.name, err });
+                return;
+            },
         };
 
         const email_gop = try cached_emails.getOrPut(j.email);
@@ -199,10 +213,16 @@ const Journal = struct {
         j.streak_last = now - DAY * 2;
 
         for (j.repos.items) |*repo| {
-            try repo.commits.append(a, repo.repo.HEAD(a, io) catch |err| {
-                log.warn("Error building streak list for repo {s} because {}", .{ repo.name, err });
-                repo.commits.clearAndFree(a);
-                continue;
+            try repo.commits.append(a, repo.repo.HEAD(a, io) catch |err| switch (err) {
+                error.RefMissing => {
+                    log.debug("Error building commit list for repo {s} (new repo?)", .{repo.name});
+                    continue;
+                },
+                else => {
+                    log.warn("Error building streak list for repo {s} because {}", .{ repo.name, err });
+                    repo.commits.clearAndFree(a);
+                    continue;
+                },
             });
             repo.next_ts = repo.commits.items[0].author.timestamp;
         }
