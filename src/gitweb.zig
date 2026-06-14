@@ -117,7 +117,7 @@ fn spawn(f: *const Frame) !std.process.Child {
     var map = try prepareEnv(f);
     defer map.deinit();
 
-    const argv: []const []const u8 = if (Config.global.git.hooks_disabled)
+    const argv: []const []const u8 = if ((Config.global.git orelse Config.Git.default).hooks_disabled)
         &.{ "git", "http-backend" }
     else
         &.{ "git", "-c", "core.hooksPath=" ++ hooks_path, "http-backend" };

@@ -3,7 +3,7 @@ owner: ?Owner,
 repos: ?Config.Repos,
 agent: ?Agent,
 notifications: ?Notifications,
-git: Git,
+git: ?Git,
 
 pub var global: Config = .empty;
 

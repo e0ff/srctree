@@ -93,7 +93,10 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                     if (find(u8, fr.request.user_agent.?.string, "SearchBot/1.0") == null) return null;
                     return dropRequest(fr);
                 },
-                .gptbot, .metaexternalagent => return dropRequest(fr),
+                .gptbot,
+                .metaexternalagent,
+                .youbot,
+                => return dropRequest(fr),
 
                 else => if (bot.malicious) {
                     log.err("Dropping malicious traffic", .{});
