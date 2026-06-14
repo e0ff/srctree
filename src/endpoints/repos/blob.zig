@@ -132,7 +132,7 @@ fn blob(f: *Frame, rd: RouteData, repo: *Git.Repo, tree: Git.Tree) Router.Error!
         .repo_header = .{
             .repo_name = .abx(rd.name),
             // TODO FIXME
-            .description = .safe(try allocPrint(f.alloc, "{f}", .{abx.Html{ .text = repo.description(f.alloc, f.io) catch "" }})),
+            .description = .abx(repo.description(f.alloc, f.io) catch ""),
             .blame = .{ .repo_name = .abx(rd.name), .filename = .abx(path.buffer) },
             .git_uri = .{ .host = .safe(try f.request.host.?.valid()), .repo_name = .abx(rd.name) },
             .upstream = upstream,
