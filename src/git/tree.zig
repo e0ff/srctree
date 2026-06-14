@@ -12,7 +12,7 @@ pub fn pushPath(self: *Tree, a: Allocator, path: []const u8) !void {
         return;
     };
 
-    self.path = try join(a, "/", &[_][]const u8{ spath, path });
+    self.path = try join(a, "/", &.{ spath, path });
     a.free(spath);
 }
 
