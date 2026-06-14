@@ -19,6 +19,13 @@ thread: ?*Thread = null,
 
 pub const Delta = @This();
 
+pub const empty: Delta = .{
+    .index = 0,
+    .repo = &.{},
+    .title = &.{},
+    .message = &.{},
+};
+
 pub const type_prefix = .deltas;
 pub const type_version = 0;
 
@@ -43,12 +50,7 @@ pub const Attachment = union(Attach) {
     remote: []const u8,
 };
 
-const typeio = Types.readerWriter(Delta, .{
-    .index = 0,
-    .repo = &.{},
-    .title = &.{},
-    .message = &.{},
-});
+const typeio = Types.readerWriter(Delta, .empty);
 const writerFn = typeio.write;
 const readerFn = typeio.read;
 const Index = Types.Index(type_prefix);
@@ -134,7 +136,7 @@ pub fn addMessage(delta: *Delta, m: Message, a: Allocator, io: Io) !void {
     try delta.commit(io);
 }
 
-fn setCommon(delta: *Delta, comptime fmt: []const u8, c: Comment, a: Allocator, io: Io) !?Message {
+fn setCommon(delta: *Delta, comptime fmt: []const u8, c: Comment, a: Allocator, io: Io) !Message {
     var thread: *Thread = delta.thread orelse try delta.loadThread(a, io);
     var m: ?Message = null;
     if (c.message.len > 0)
@@ -145,16 +147,16 @@ fn setCommon(delta: *Delta, comptime fmt: []const u8, c: Comment, a: Allocator, 
     try thread.addMessage(try .new(.state_change, delta.index, c.author, state_msg, io), a, io);
     delta.updated = thread.updated;
     try delta.commit(io);
-    return m;
+    return m orelse return error.NoMessage;
 }
 
-pub fn setClosed(delta: *Delta, c: Comment, a: Allocator, io: Io) !?Message {
+pub fn setClosed(delta: *Delta, c: Comment, a: Allocator, io: Io) !Message {
     delta.state.closed = true;
     const m = try delta.setCommon("closed", c, a, io);
     return m;
 }
 
-pub fn setOpen(delta: *Delta, c: Comment, a: Allocator, io: Io) !?Message {
+pub fn setOpen(delta: *Delta, c: Comment, a: Allocator, io: Io) !Message {
     delta.state.closed = false;
     const m = try delta.setCommon("opened", c, a, io);
     return m;

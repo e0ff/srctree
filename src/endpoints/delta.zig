@@ -30,13 +30,19 @@ pub fn addComment(
             .{ .author = user, .message = valid.comment },
             f.alloc,
             f.io,
-        ) catch return error.ServerFault;
+        ) catch |e| switch (e) {
+            error.NoMessage => null,
+            else => return error.ServerFault,
+        };
     } else if (valid.close.?) {
         msg = delta.setClosed(
             .{ .author = user, .message = valid.comment },
             f.alloc,
             f.io,
-        ) catch return error.ServerFault;
+        ) catch |e| switch (e) {
+            error.NoMessage => null,
+            else => return error.ServerFault,
+        };
     } else {
         msg = delta.addComment(
             .{ .author = user, .message = valid.comment },
@@ -46,7 +52,7 @@ pub fn addComment(
     }
     var buf: [2048]u8 = undefined;
     const loc = try std.fmt.bufPrint(&buf, "/repo/{s}/" ++ location ++ "/{x}", .{ repo, id });
-    try events.newComment(repo, id, loc, msg.?, f.io);
+    try events.newComment(repo, id, loc, msg orelse .empty, f.io);
     f.redirect(loc, .see_other) catch unreachable;
     return msg;
 }

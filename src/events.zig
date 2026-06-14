@@ -18,12 +18,12 @@ pub fn newComment(repo: []const u8, idx: usize, url: []const u8, msg: Message, i
 pub const Ack = struct {
     pub const email = struct {
         pub fn newComment(repo: []const u8, idx: usize, url: []const u8, msg: Message, io: Io) !void {
-            const sender = if (@import("Config.zig").global.notifications) |note|
+            const sender = if (cfg.notifications) |note|
                 note.sender orelse "\"srctree\" <srctree@gr.ht>"
             else
                 "\"srctree\" <srctree@gr.ht>";
 
-            const receiver = if (@import("Config.zig").global.notifications) |note|
+            const receiver = if (cfg.notifications) |note|
                 note.receiver orelse "\"srctree\" <srcadmin@gr.ht>"
             else
                 "\"srctree\" <srcadmin@gr.ht>";
@@ -32,7 +32,7 @@ pub const Ack = struct {
 
             var sub_b: [2048]u8 = undefined;
             const subject = try bufPrint(&sub_b, "New Comment on #{} in {s} from {s}", .{
-                idx, repo, msg.author.?,
+                idx, repo, msg.author orelse "[no author given]",
             });
             var body_b: [2048]u8 = undefined;
             const body = try bufPrint(&body_b, "https://srctree.gr.ht{s}", .{url});
@@ -53,6 +53,7 @@ pub const Ack = struct {
 
 const std = @import("std");
 const builtin = @import("builtin");
+const cfg = &@import("Config.zig").global;
 
 const Io = std.Io;
 const smtp = @import("smtp");

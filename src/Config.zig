@@ -3,7 +3,7 @@ owner: ?Owner,
 repos: ?Config.Repos,
 agent: ?Agent,
 notifications: ?Notifications,
-git: ?Git,
+git: Git,
 
 pub var global: Config = .empty;
 
@@ -48,6 +48,9 @@ pub const Git = struct {
     push_enabled: bool = false,
     pull_enabled: bool = true,
     auto_create_enabled: bool = false,
+    hooks_disabled: bool = false,
+
+    pub const default: Git = .{};
 };
 
 pub const empty: Config = .{
@@ -56,5 +59,5 @@ pub const empty: Config = .{
     .repos = null,
     .agent = null,
     .notifications = null,
-    .git = null,
+    .git = .default,
 };

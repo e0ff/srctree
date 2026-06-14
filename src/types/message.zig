@@ -14,6 +14,14 @@ message: []const u8,
 
 const Message = @This();
 
+pub const empty: Message = .{
+    .hash = @splat(0),
+    .state = .default,
+    .target = undefined,
+    .kind = undefined,
+    .message = &.{},
+};
+
 pub const State = @import("common.zig").State;
 
 pub const Kind = enum(u16) {
@@ -26,13 +34,7 @@ pub const type_prefix = .messages;
 pub const type_version = 0;
 pub const type_skip_fields: [1][]const u8 = .{"message"};
 
-const typeio = Types.readerWriter(Message, .{
-    .hash = @splat(0),
-    .state = .default,
-    .target = undefined,
-    .kind = undefined,
-    .message = &.{},
-});
+const typeio = Types.readerWriter(Message, .empty);
 const writerFn = typeio.write;
 const readerFn = typeio.read;
 

@@ -112,17 +112,17 @@ fn gzipEncoded(f: *const Frame) bool {
     return false;
 }
 
+const hooks_path = "./hooks/";
 fn spawn(f: *const Frame) !std.process.Child {
     var map = try prepareEnv(f);
     defer map.deinit();
 
-    return std.process.spawn(f.io, .{
-        .argv = &.{ "git", "http-backend" },
-        .stdin = .pipe,
-        .stdout = .pipe,
-        .stderr = .pipe,
-        .environ_map = &map,
-    }) catch |err| {
+    const argv: []const []const u8 = if (Config.global.git.hooks_disabled)
+        &.{ "git", "http-backend" }
+    else
+        &.{ "git", "-c", "core.hooksPath=" ++ hooks_path, "http-backend" };
+
+    return std.process.spawn(f.io, .{ .argv = argv, .stdin = .pipe, .stdout = .pipe, .stderr = .pipe, .environ_map = &map }) catch |err| {
         log.err("Unable to spawn for gitweb {}", .{err});
         return error.ServerFault;
     };
@@ -293,3 +293,4 @@ const Error = Router.Error;
 
 const git = @import("git.zig");
 const repos = @import("repos.zig");
+const Config = @import("Config.zig");
