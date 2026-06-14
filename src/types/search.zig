@@ -144,7 +144,7 @@ pub fn RepoIterator(Indexer: type, Output: type) type {
         pub fn init(repo: []const u8, io: Io) Self {
             return .{
                 .repo = repo,
-                .index = Index.currentExtra(repo, io) catch 0,
+                .index = Index.scoped.current(repo, io) catch 0,
             };
         }
 

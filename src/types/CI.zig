@@ -44,7 +44,7 @@ const Index = Types.Index(type_prefix);
 const fmt_str = "{s}.{x}." ++ @tagName(type_prefix);
 
 pub fn new(repo: []const u8, reason: []const u8, source: []const u8, result: Result, commit_hash: Hash, io: Io) !CI {
-    const max: usize = try Index.nextExtra(repo, io);
+    const max: usize = try Index.scoped.next(repo, io);
     const now = Io.Clock.real.now(io).toSeconds();
     var ci = CI{
         .index = max,
@@ -60,7 +60,7 @@ pub fn new(repo: []const u8, reason: []const u8, source: []const u8, result: Res
 }
 
 pub fn open(repo: []const u8, index: usize, a: Allocator, io: Io) !CI {
-    const max = Index.currentExtra(repo, io) catch return error.FSFault;
+    const max = Index.scoped.current(repo, io) catch return error.FSFault;
     if (index > max) return error.CIDoesNotExist;
 
     var buf: [2048]u8 = undefined;

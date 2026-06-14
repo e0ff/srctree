@@ -56,7 +56,7 @@ const readerFn = typeio.read;
 const Index = Types.Index(type_prefix);
 
 pub fn new(repo: []const u8, title: []const u8, msg: []const u8, author: []const u8, io: Io) !Delta {
-    const max: usize = try Index.nextExtra(repo, io);
+    const max: usize = try Index.scoped.next(repo, io);
     var d = Delta{
         .index = max,
         .created = Io.Clock.real.now(io).toSeconds(),
@@ -74,7 +74,7 @@ pub fn new(repo: []const u8, title: []const u8, msg: []const u8, author: []const
 }
 
 pub fn open(repo: []const u8, index: usize, a: Allocator, io: Io) !Delta {
-    const max = Index.currentExtra(repo, io) catch return error.FSFault;
+    const max = Index.scoped.current(repo, io) catch return error.FSFault;
     if (index > max) return error.DeltaDoesNotExist;
 
     var buf: [2048]u8 = undefined;

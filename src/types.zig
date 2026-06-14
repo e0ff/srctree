@@ -117,7 +117,7 @@ pub fn loadDataReader(comptime type_name: @EnumLiteral(), name: []const u8, a: A
 
 pub fn loadDataHashId(comptime type_name: @EnumLiteral(), hash: DefaultHash, a: Allocator, io: Io) !Io.Reader {
     var buf: [@sizeOf(DefaultHash) * 2 + 1 + @tagName(type_name).len]u8 = undefined;
-    const filename = bufPrint(&buf, "{x}." ++ @tagName(type_name), .{&hash}) catch unreachable;
+    const filename = print(&buf, "{x}." ++ @tagName(type_name), .{&hash}) catch unreachable;
     return loadDataReader(type_name, filename, a, io);
 }
 
@@ -129,7 +129,7 @@ pub fn commit(comptime type_name: @EnumLiteral(), name: []const u8, io: Io) !Io.
 
 pub fn commitHashId(comptime type_name: @EnumLiteral(), hash: DefaultHash, io: Io) !Io.File {
     var buf: [@sizeOf(DefaultHash) * 2 + 1 + @tagName(type_name).len]u8 = undefined;
-    const filename = bufPrint(&buf, "{x}." ++ @tagName(type_name), .{&hash}) catch unreachable;
+    const filename = print(&buf, "{x}." ++ @tagName(type_name), .{&hash}) catch unreachable;
     var type_dir = try storage_dir.createDirPathOpen(io, @tagName(type_name), .{});
     defer type_dir.close(io);
     return try type_dir.createFile(io, filename, .{});
@@ -139,6 +139,8 @@ pub fn Index(type_name: @EnumLiteral()) type {
     return struct {
         var mutex: std.Io.Mutex = .init;
         pub const name = "_" ++ @tagName(type_name) ++ ".index";
+        pub const pathfmt = "repo_scoped/{s}/" ++ name;
+        var pbuf: [2048]u8 = undefined;
 
         pub fn current(io: Io) !usize {
             try mutex.lock(io);
@@ -179,42 +181,42 @@ pub fn Index(type_name: @EnumLiteral()) type {
             return idx;
         }
 
-        pub fn currentExtra(extra_name: []const u8, io: Io) !usize {
-            try mutex.lock(io);
-            defer mutex.unlock(io);
-            var buffer: [2048]u8 = undefined;
-            const ename = try bufPrint(&buffer, "_{s}.{s}", .{ extra_name, name[1..] });
-            var index_file = storage_dir.openFile(io, ename, .{}) catch |err| switch (err) {
-                error.FileNotFound => {
-                    var new_file = try storage_dir.createFile(io, ename, .{});
-                    defer new_file.close(io);
-                    try increment(new_file, 0, io);
-                    return 0;
-                },
-                else => return err,
-            };
-            defer index_file.close(io);
-            var r_b: [10]u8 = undefined;
-            var fd_reader = index_file.reader(io, &r_b);
-            var reader = &fd_reader.interface;
-            const idx = reader.takeInt(usize, .big) catch 0;
-            return idx;
-        }
+        pub const scoped = struct {
+            pub fn current(scope: []const u8, io: Io) !usize {
+                try mutex.lock(io);
+                defer mutex.unlock(io);
+                const ename = try print(&pbuf, "_{s}.{s}", .{ scope, name[1..] });
+                var index_file = storage_dir.openFile(io, ename, .{}) catch |err| switch (err) {
+                    error.FileNotFound => {
+                        var new_file = try storage_dir.createFile(io, ename, .{});
+                        defer new_file.close(io);
+                        try increment(new_file, 0, io);
+                        return 0;
+                    },
+                    else => return err,
+                };
+                defer index_file.close(io);
+                var r_b: [10]u8 = undefined;
+                var fd_reader = index_file.reader(io, &r_b);
+                var reader = &fd_reader.interface;
+                const idx = reader.takeInt(usize, .big) catch 0;
+                return idx;
+            }
 
-        pub fn nextExtra(extra_name: []const u8, io: Io) !usize {
-            try mutex.lock(io);
-            defer mutex.unlock(io);
-            var buffer: [2048]u8 = undefined;
-            const ename = try bufPrint(&buffer, "_{s}.{s}", .{ extra_name, name[1..] });
-            var index_file = try storage_dir.createFile(io, ename, .{ .read = true, .truncate = false });
-            defer index_file.close(io);
-            var r_b: [10]u8 = undefined;
-            var reader = index_file.reader(io, &r_b);
-            var idx = reader.interface.takeInt(usize, .big) catch 0;
-            idx += 1;
-            try increment(index_file, idx, io);
-            return idx;
-        }
+            pub fn next(scope: []const u8, io: Io) !usize {
+                try mutex.lock(io);
+                defer mutex.unlock(io);
+                const ename = try print(&pbuf, "_{s}.{s}", .{ scope, name[1..] });
+                var index_file = try storage_dir.createFile(io, ename, .{ .read = true, .truncate = false });
+                defer index_file.close(io);
+                var r_b: [10]u8 = undefined;
+                var reader = index_file.reader(io, &r_b);
+                var idx = reader.interface.takeInt(usize, .big) catch 0;
+                idx += 1;
+                try increment(index_file, idx, io);
+                return idx;
+            }
+        };
     };
 }
 
@@ -398,6 +400,6 @@ const indexOf = std.mem.indexOf;
 const splitScalar = std.mem.splitScalar;
 const eql = std.mem.eql;
 const startsWith = std.mem.startsWith;
-const bufPrint = std.fmt.bufPrint;
+const print = std.fmt.bufPrint;
 
 const type_debugging = false;

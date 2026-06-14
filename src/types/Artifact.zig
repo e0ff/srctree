@@ -25,7 +25,7 @@ const readerFn = typeio.read;
 const Index = Types.Index(type_prefix);
 
 pub fn new(repo: []const u8, filename: []const u8, blob: []const u8, src_hash: DefaultHash, io: Io) !Artifact {
-    const idx: usize = try Index.nextExtra(repo, io);
+    const idx: usize = try Index.scoped.next(repo, io);
     var art = Artifact{
         .index = idx,
         .repo = repo,
@@ -60,7 +60,7 @@ pub fn commit(art_: Artifact, io: Io) !void {
 }
 
 pub fn open(repo: []const u8, index: usize, a: Allocator, io: Io) !Artifact {
-    const max = Index.currentExtra(repo, io) catch return error.FSFault;
+    const max = Index.scoped.current(repo, io) catch return error.FSFault;
     if (index > max) return error.DeltaDoesNotExist;
 
     var buf: [2048]u8 = undefined;
