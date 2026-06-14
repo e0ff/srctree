@@ -64,16 +64,6 @@ pub fn commit(issue: Issue) !void {
     try writerFn(&issue, &writer);
 }
 
-pub fn raze(self: Issue, a: std.mem.Allocator) void {
-    //if (self.alloc_data) |data| {
-    //    a.free(data);
-    //}
-    if (self.comments) |c| {
-        a.free(c);
-    }
-    self.file.close();
-}
-
 test "reader/writer" {
     const a = std.testing.allocator;
     var writer = std.Io.Writer.Allocating.init(a);
