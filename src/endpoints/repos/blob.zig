@@ -24,13 +24,12 @@ pub fn treeBlob(frame: *Frame) Router.Error!void {
     const cmt = repo.HEAD(frame.alloc, frame.io) catch return newRepo(frame);
 
     if (rd.verb != null and rd.ref != null and isHash(rd.ref.?)) {
-        std.debug.print("ref '{s}'\n", .{rd.ref.?});
         const sha: Git.Sha = .init(rd.ref.?);
         switch (repo.objects.load(sha, frame.alloc, frame.io) catch return error.InvalidURI) {
             .commit => |c| return treeOrBlobAtRef(frame, rd, &repo, c),
             else => return error.DataInvalid,
         }
-    } else std.debug.print("no ref {}\n", .{rd});
+    }
 
     return treeOrBlobAtRef(frame, rd, &repo, cmt);
 }
