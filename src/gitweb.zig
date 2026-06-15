@@ -239,8 +239,7 @@ fn uploadPackExternal(f: *Frame) Error!void {
     var r_b: [6400]u8 = undefined; // This is what I saw while debugging
     var stdout_r = stdout.reader(f.io, &r_b);
 
-    // we just guess and assume it'll return 200
-    // checking would be better
+    // we just guess and assume it'll return 200 checking would be better
     f.downstream.writer.writeAll("HTTP/1.1 200 OK\r\n") catch
         return debugStderr("unable to start headers", &child, f.io);
 
@@ -280,6 +279,7 @@ const eql = std.mem.eql;
 const startsWith = std.mem.startsWith;
 const log = std.log.scoped(.gitweb);
 const allocPrint = std.fmt.allocPrint;
+const print = std.fmt.bufPrint;
 const RouteData = @import("endpoints/repos.zig").RouteData;
 
 const main = @import("main.zig");

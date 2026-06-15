@@ -3,13 +3,13 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const use_llvm = optimize != .Debug or true;
 
     const enable_libcurl = b.option(bool, "libcurl", "enable linking with libcurl") orelse false;
     const options = b.addOptions();
-    options.addOption(bool, "libcurl", enable_libcurl);
-    const use_llvm = optimize != .Debug or true;
 
-    // Dependencies
+    options.addOption(bool, "libcurl", enable_libcurl);
+
     const verse = b.dependency("verse", .{
         .target = target,
         .optimize = optimize,
@@ -18,31 +18,30 @@ pub fn build(b: *std.Build) void {
         .@"abx-required" = true,
         .@"accept-lang-heat" = "",
     });
+    const verse_mod = verse.module("verse");
 
     const smtp = b.dependency("smtp", .{ .target = target, .optimize = optimize });
-
-    // Set up verse
-    const mod_verse = verse.module("verse");
-    const mod_smtp = smtp.module("smtp");
+    const smtp_mod = smtp.module("smtp");
 
     // srctree
-    const exe = b.addExecutable(.{
+    const srctree_mod = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const srctree = b.addExecutable(.{
         .name = "srctree",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
+        .root_module = srctree_mod,
         .use_llvm = use_llvm,
         .use_lld = use_llvm,
     });
-    b.installArtifact(exe);
-    exe.root_module.addOptions("config", options);
-    exe.root_module.addImport("verse", mod_verse);
-    exe.root_module.addImport("smtp", mod_smtp);
+    b.installArtifact(srctree);
+    srctree_mod.addOptions("config", options);
+    srctree_mod.addImport("verse", verse_mod);
+    srctree_mod.addImport("smtp", smtp_mod);
 
     // build run
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(srctree);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);
@@ -52,16 +51,10 @@ pub fn build(b: *std.Build) void {
 
     // srctree tests
     const unit_tests = b.addTest(.{
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
+        .root_module = srctree_mod,
         .use_llvm = use_llvm,
         .use_lld = use_llvm,
     });
-    unit_tests.root_module.addOptions("config", options);
-    unit_tests.root_module.addImport("verse", mod_verse);
     const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
@@ -87,25 +80,31 @@ pub fn build(b: *std.Build) void {
     //    send_email.addArgs(args);
     //}
 
-    const hooks = b.addExecutable(.{
-        .name = "srctree-hooks",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/hooks.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
+    const hooks_mod = b.createModule(.{
+        .root_source_file = b.path("src/hooks.zig"),
+        .target = target,
     });
+    const hooks = b.addExecutable(.{ .name = "srctree-hooks", .root_module = hooks_mod });
     const hook_artifact = b.addInstallArtifact(hooks, .{ .dest_sub_path = "hooks/update" });
     b.getInstallStep().dependOn(&hook_artifact.step);
 
-    const deploy = b.step("deploy", "insall exes & static files");
+    const artificer_mod = b.createModule(.{
+        .root_source_file = b.path("src/Artificer.zig"),
+        .target = target,
+    });
+    const artificer = b.addExecutable(.{ .name = "artificer", .root_module = artificer_mod });
+    const artificer_artifact = b.addInstallArtifact(artificer, .{});
+    b.getInstallStep().dependOn(&artificer_artifact.step);
+
+    const deploy = b.step("deploy", "install all artifacts");
     const static_files = b.addInstallDirectory(.{
         .source_dir = b.path("static"),
         .install_dir = .prefix,
         .install_subdir = "static",
     });
-    const deploy_exe = b.addInstallArtifact(exe, .{});
+    const deploy_exe = b.addInstallArtifact(srctree, .{});
     deploy.dependOn(&deploy_exe.step);
     deploy.dependOn(&hook_artifact.step);
+    deploy.dependOn(&artificer_artifact.step);
     deploy.dependOn(&static_files.step);
 }
