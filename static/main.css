@@ -39,8 +39,8 @@ div {
 		border-radius: 4px;
 	}
 }
-h1,h2,h3 { margin: 0 }
-summary { display: block }
+h1,h2,h3 { margin: 0; }
+summary { display: block; }
 hint {
 	color: #bbb;
 	font-family: 'Titillium Web', sans-serif;
@@ -183,11 +183,11 @@ ln {
 	}
 	&:target { background-color: #222;  }
 	&:empty { width: auto; }
-	&.add { background: #568 }
-	&.del { background: #633 }
+	&.add { background: #568; }
+	&.del { background: #633; }
 	&.nul { background: #2228; height: 1em; margin: 0 2px; }
-	&.add:target { background: #79d }
-	&.del:target { background: #a44 }
+	&.add:target { background: #79d; }
+	&.del:target { background: #a44; }
 	&.nul:target { background: #2228; height: 1em; margin: 0 2px; }
 	lnex {
 		white-space: pre;
@@ -242,7 +242,7 @@ repolist {
 				display: flex;
 				justify-content: space-between;
 			}
-			.updated:only-child { margin: 0 }
+			.updated:only-child { margin: 0; }
 		}
 		&.lowlight {
 			a { color: #777; &:visited { color: #777; } }
@@ -457,7 +457,7 @@ patchrequest {
 		border-radius: 2px;
 		font-size: 130%;
 	}
-	textarea { height: 10em }
+	textarea { height: 10em; }
 	intro {
 		border-radius: 4px 4px 0 0;
 		padding: 10px;
@@ -566,7 +566,7 @@ comment {
 		border-radius: 2px;
 		font-size: 130%;
 	}
-	textarea { height: 10em }
+	textarea { height: 10em; }
 	.buttons {
 		background: #333;
 		border: 1px gray solid;
@@ -799,29 +799,29 @@ td.linenos .normal { color: inherit; background-color: transparent; padding-left
 span.linenos { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
 td.linenos .special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
 span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 5px; padding-right: 5px; }
-.hll { background-color: #ebdbb2 } .c { color: #928374; font-style: italic }
-.err { color: #282828; background-color: #fb4934 }
-.esc { color: #dddddd } .g { color: #dddddd } .k { color: #fb4934 } .l { color: #dddddd } .n { color: #dddddd }
-.o { color: #dddddd } .x { color: #dddddd } .p { color: #dddddd }
-.ch { color: #928374; font-style: italic } .cm { color: #928374; font-style: italic }
-.c-PreProc { color: #8ec07c; font-style: italic } .cp { color: #928374; font-style: italic }
-.cpf { color: #928374; font-style: italic } .c1 { color: #928374; font-style: italic }
-.cs { color: #ebdbb2; font-weight: bold; font-style: italic } .ge { color: #dddddd; font-style: italic }
-.gd { color: #282828; background-color: #fb4934 } .gh { color: #ebdbb2; font-weight: bold }
-.ges { color: #dddddd; font-weight: bold; font-style: italic } .gr { color: #fb4934 }
-.gi { color: #282828; background-color: #b8bb26 } .go { color: #f2e5bc } .gp { color: #a89984 }
-.gs { color: #dddddd; font-weight: bold } .gu { color: #ebdbb2; text-decoration: underline }
-.gt { color: #fb4934 } .kc { color: #fb4934 } .kd { color: #fb4934 } .kn { color: #fb4934 } .kp { color: #fb4934 }
-.kr { color: #fb4934 } .kt { color: #fb4934 } .ld { color: #dddddd } .m { color: #d3869b } .s { color: #b8bb26 }
-.na { color: #fabd2f } .nb { color: #fe8019 } .nc { color: #8ec07c } .no { color: #d3869b } .nd { color: #fb4934 }
-.ni { color: #dddddd } .ne { color: #fb4934 } .nf { color: #8ec07c } .nl { color: #dddddd } .nn { color: #8ec07c }
-.nx { color: #dddddd } .py { color: #dddddd } .nt { color: #8ec07c } .nv { color: #83a598 } .ow { color: #fb4934 }
-.pm { color: #dddddd } .w { color: #dddddd } .mb { color: #d3869b } .mf { color: #d3869b } .mh { color: #d3869b }
-.mi { color: #d3869b } .mo { color: #d3869b } .sa { color: #b8bb26 } .sb { color: #b8bb26 } .sc { color: #b8bb26 }
-.dl { color: #b8bb26 } .sd { color: #b8bb26 } .s2 { color: #b8bb26 } .se { color: #fe8019 } .sh { color: #b8bb26 }
-.si { color: #b8bb26 } .sx { color: #b8bb26 } .sr { color: #b8bb26 } .s1 { color: #b8bb26 } .ss { color: #b8bb26 }
-.bp { color: #fe8019 } .fm { color: #8ec07c } .vc { color: #83a598 } .vg { color: #83a598 } .vi { color: #83a598 }
-.vm { color: #83a598 } .il { color: #d3869b }
+.hll { background-color: #ebdbb2; } .c { color: #928374; font-style: italic; }
+.err { color: #282828; background-color: #fb4934; }
+.esc { color: #dddddd; } .g { color: #dddddd; } .k { color: #fb4934; } .l { color: #dddddd; } .n { color: #dddddd; }
+.o { color: #dddddd; } .x { color: #dddddd; } .p { color: #dddddd; }
+.ch { color: #928374; font-style: italic; } .cm { color: #928374; font-style: italic; }
+.c-PreProc { color: #8ec07c; font-style: italic; } .cp { color: #928374; font-style: italic; }
+.cpf { color: #928374; font-style: italic; } .c1 { color: #928374; font-style: italic; }
+.cs { color: #ebdbb2; font-weight: bold; font-style: italic; } .ge { color: #dddddd; font-style: italic; }
+.gd { color: #282828; background-color: #fb4934; } .gh { color: #ebdbb2; font-weight: bold; }
+.ges { color: #dddddd; font-weight: bold; font-style: italic; } .gr { color: #fb4934; }
+.gi { color: #282828; background-color: #b8bb26; } .go { color: #f2e5bc; } .gp { color: #a89984; }
+.gs { color: #dddddd; font-weight: bold; } .gu { color: #ebdbb2; text-decoration: underline; }
+.gt { color: #fb4934; } .kc { color: #fb4934; } .kd { color: #fb4934; } .kn { color: #fb4934; } .kp { color: #fb4934; }
+.kr { color: #fb4934; } .kt { color: #fb4934; } .ld { color: #dddddd; } .m { color: #d3869b; } .s { color: #b8bb26; }
+.na { color: #fabd2f; } .nb { color: #fe8019; } .nc { color: #8ec07c; } .no { color: #d3869b; } .nd { color: #fb4934; }
+.ni { color: #dddddd; } .ne { color: #fb4934; } .nf { color: #8ec07c; } .nl { color: #dddddd; } .nn { color: #8ec07c; }
+.nx { color: #dddddd; } .py { color: #dddddd; } .nt { color: #8ec07c; } .nv { color: #83a598; } .ow { color: #fb4934; }
+.pm { color: #dddddd; } .w { color: #dddddd; } .mb { color: #d3869b; } .mf { color: #d3869b; } .mh { color: #d3869b; }
+.mi { color: #d3869b; } .mo { color: #d3869b; } .sa { color: #b8bb26; } .sb { color: #b8bb26; } .sc { color: #b8bb26; }
+.dl { color: #b8bb26; } .sd { color: #b8bb26; } .s2 { color: #b8bb26; } .se { color: #fe8019; } .sh { color: #b8bb26; }
+.si { color: #b8bb26; } .sx { color: #b8bb26; } .sr { color: #b8bb26; } .s1 { color: #b8bb26; } .ss { color: #b8bb26; }
+.bp { color: #fe8019; } .fm { color: #8ec07c; } .vc { color: #83a598; } .vg { color: #83a598; } .vi { color: #83a598; }
+.vm { color: #83a598; } .il { color: #d3869b; }
 /* Titillium Licence /static/OFL.txt */
 @font-face { font-family: 'Titillium Web'; font-style: italic; font-weight: 300; src: url(/static/TitilliumWeb-LightItalic.ttf) format('truetype'); }
 @font-face { font-family: 'Titillium Web'; font-style: italic; font-weight: 400; src: url(/static/TitilliumWeb-Italic.ttf) format('truetype'); }
