@@ -3,7 +3,7 @@ const BranchPage = PageData("branches.html");
 pub fn list(frame: *Frame) Router.Error!void {
     const rd = RouteData.init(frame.uri) orelse return error.Unrouteable;
 
-    const vis: repos.Visibility.Select = if (frame.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (frame.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, frame.io) catch return error.Unknown) orelse return error.InvalidURI;
     repo.loadData(frame.alloc, frame.io) catch return error.Unknown;
     defer repo.raze(frame.alloc, frame.io);
@@ -85,6 +85,7 @@ pub fn sort(ctx: SortCtx, l: Git.Branch, r: Git.Branch) bool {
 
 const repos = @import("../../repos.zig");
 const RouteData = @import("../repos.zig").RouteData;
+const Repo = @import("../../Repo.zig");
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;

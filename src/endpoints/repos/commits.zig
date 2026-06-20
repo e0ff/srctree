@@ -3,8 +3,8 @@ pub const routes = [_]Router.MatchRouter{
     Router.GET("before", commitsBefore),
 };
 
-const CommitPage = Template.PageData("commit.html");
-const CommitsListPage = Template.PageData("commit-list.html");
+const CommitPage = T.PageData("commit.html");
+const CommitsListPage = T.PageData("commit-list.html");
 
 const AddComment = struct {
     text: []const u8,
@@ -24,7 +24,7 @@ fn newComment(f: *Frame) Error!void {
     return error.DataInvalid;
 }
 
-pub fn patchVerse(a: Allocator, patch: *Patch.Patch) ![]Template.Context {
+pub fn patchVerse(a: Allocator, patch: *Patch.Patch) ![]T.Context {
     patch.parse(a) catch |err| {
         if (std.mem.indexOf(u8, patch.blob, "\nMerge: ") == null) {
             std.debug.print("'''\n{s}\n'''\n", .{patch.blob});
@@ -154,7 +154,7 @@ pub fn viewAsPatch(f: *Frame, sha: []const u8, repo: Git.Repo) Error!void {
     if (endsWith(u8, sha, ".patch")) {
         var rbuf: [0xff]u8 = undefined;
         const commit_only = sha[0 .. sha.len - 6];
-        const range = try bufPrint(rbuf[0..], "{s}^..{s}", .{ commit_only, commit_only });
+        const range = try print(rbuf[0..], "{s}^..{s}", .{ commit_only, commit_only });
 
         const diff = acts.formatPatchRange(range, f.io) catch return error.ServerFault;
         f.status = .ok;
@@ -174,7 +174,7 @@ pub fn viewCommit(f: *Frame) Error!void {
     const sha = rd.ref orelse return error.Unrouteable;
     if (std.mem.indexOf(u8, sha, ".") != null and !std.mem.endsWith(u8, sha, ".patch")) return error.Unrouteable;
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.ServerFault) orelse {
         log.err("Repo doesn't exist? {s}", .{rd.name});
         return f.sendDefaultErrorPage(.not_found);
@@ -334,7 +334,7 @@ pub fn commitList(f: *Frame) Error!void {
     //    }
     //} else {}
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.ServerFault) orelse
         return f.sendDefaultErrorPage(.not_found);
     repo.loadData(f.alloc, f.io) catch return error.Unknown;
@@ -353,14 +353,14 @@ pub fn commitsBefore(f: *Frame) Error!void {
 
     std.debug.assert(std.mem.eql(u8, "after", f.uri.next().?));
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.ServerFault) orelse
         return f.sendDefaultErrorPage(.not_found);
     repo.loadData(f.alloc) catch return error.Unknown;
     defer repo.raze(f.alloc, f.io);
 
     const before: Git.Sha = if (f.uri.next()) |bf| .init(bf);
-    const commits_b = try f.alloc.alloc(Template.Verse, 50);
+    const commits_b = try f.alloc.alloc(T.Verse, 50);
 
     var l_b: [50]S.CommitListHtml.CommitList = undefined;
     var list: ArrayList(S.CommitListHtml.CommitList) = .initBuffer(&l_b);
@@ -392,35 +392,30 @@ const Io = std.Io;
 const Reader = Io.Reader;
 const Writer = Io.Writer;
 const allocPrint = std.fmt.allocPrint;
-const bufPrint = std.fmt.bufPrint;
+const print = std.fmt.bufPrint;
 const endsWith = std.mem.endsWith;
 const eql = std.mem.eql;
 const trim = std.mem.trim;
-
 const Verse = @import("verse");
 const Router = Verse.Router;
-const Template = Verse.template;
-const S = Template.Structs;
-const HTML = Verse.HTML;
+const T = Verse.template;
+const S = T.Structs;
 const Error = Router.Error;
-const DOM = Verse.DOM;
 const Frame = Verse.Frame;
 const abx = Verse.abx;
 
 const Diffs = @import("diffs.zig");
-
 const Repos = @import("../repos.zig");
 const RouteData = Repos.RouteData;
 const updateFetchPatchView = Repos.updateFetchPatchView;
-
 const Datetime = @import("../../datetime.zig");
 const Git = @import("../../git.zig");
 const Highlight = @import("../../syntax-highlight.zig");
 const Humanize = @import("../../humanize.zig");
 const Patch = @import("../../Patch.zig");
 const repos = @import("../../repos.zig");
+const Repo = @import("../../Repo.zig");
 const delta_shared = @import("../delta.zig");
-
 const Types = @import("../../types.zig");
 const CommitMap = Types.CommitMap;
 const Delta = Types.Delta;

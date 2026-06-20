@@ -18,7 +18,7 @@ const extra_lines: usize = 6;
 
 fn repoSearch(f: *Frame, count: u32) Router.Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.Unrouteable;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
 
@@ -261,6 +261,7 @@ const countScalar = std.mem.countScalar;
 const log = std.log.scoped(.repo_search);
 
 const repos = @import("../../repos.zig");
+const Repo = @import("../../Repo.zig");
 const RepoEndpoint = @import("../repos.zig");
 const RouteData = RepoEndpoint.RouteData;
 const git = @import("../../git.zig");

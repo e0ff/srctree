@@ -460,7 +460,7 @@ pub fn commitFlex(ctx: *Verse.Frame) Error!void {
     );
     defer journal.raze(ctx.alloc, ctx.io);
 
-    var all_repos = repos.allRepoIterator(.public_only, ctx.io) catch return error.Unknown;
+    var all_repos = Repo.iterateAll(.public_only, ctx.io) catch return error.Unknown;
     while (all_repos.next(ctx.io) catch return error.Unknown) |input| {
         var repo = input;
         repo.loadData(ctx.alloc, ctx.io) catch {
@@ -623,6 +623,7 @@ const log = std.log.scoped(.commit_flex);
 const DateTime = @import("../datetime.zig");
 const Git = @import("../git.zig");
 const repos = @import("../repos.zig");
+const Repo = @import("../Repo.zig");
 
 const global_config = &@import("../Config.zig").global;
 

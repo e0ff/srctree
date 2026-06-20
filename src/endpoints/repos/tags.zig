@@ -3,7 +3,7 @@ const TagPage = PageData("repo-tags.html");
 pub fn list(f: *Frame) Router.Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.InvalidURI;
     repo.loadData(f.alloc, f.io) catch return error.Unknown;
     defer repo.raze(f.alloc, f.io);
@@ -58,4 +58,5 @@ const S = verse.template.Structs;
 const PageData = verse.template.PageData;
 const Router = verse.Router;
 const repos = @import("../../repos.zig");
+const Repo = @import("../../Repo.zig");
 const Git = @import("../../git.zig");

@@ -17,7 +17,7 @@ pub fn blame(f: *Frame) Router.Error!void {
     std.debug.assert(rd.verb.? == .blame);
     const blame_file = (rd.path orelse return error.InvalidURI).rest();
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.Unrouteable;
     // TODO be more specific
     //repo.loadRemotes() catch {};
@@ -257,6 +257,7 @@ const tree = @import("tree.zig").tree;
 const repos_ = @import("../repos.zig");
 const RouteData = repos_.RouteData;
 const Humanize = @import("../../humanize.zig");
+const Repo = @import("../../Repo.zig");
 const repos = @import("../../repos.zig");
 const Git = @import("../../git.zig");
 const Sha = Git.Sha;

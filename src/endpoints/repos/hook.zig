@@ -44,7 +44,7 @@ var after_party: AfterParty = .{
 
 fn update(f: *Frame) Router.Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.Unrouteable;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
 
@@ -78,6 +78,7 @@ fn update(f: *Frame) Router.Error!void {
 const std = @import("std");
 
 const repos = @import("../../repos.zig");
+const Repo = @import("../../Repo.zig");
 const RepoEndpoint = @import("../repos.zig");
 const RouteData = RepoEndpoint.RepoRouter;
 const git = @import("../../git.zig");

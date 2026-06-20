@@ -10,7 +10,7 @@ const ArtifactsHtml = T.PageData("repo/artifacts.html");
 
 fn list(f: *Frame) Router.Error!void {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.Unrouteable;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
 
@@ -19,20 +19,13 @@ fn list(f: *Frame) Router.Error!void {
         .body_header = .{ .nav = .{ .nav_buttons = &try RepoEndpoint.navButtons(f) } },
         .repo_header = .{
             .repo_name = .abx(rd.name),
-            // TODO FIXME
-            .description = .safe(try allocPrint(f.alloc, "{f}", .{
-                abx.Html{ .text = repo.description(f.alloc, f.io) catch "" },
-            })),
+            .description = .abx(repo.description(f.alloc, f.io) catch ""),
             .blame = null,
             .git_uri = null,
             .upstream = null,
         },
         .artifacts = &.{
-            .{
-                .name = .safe("name"),
-                .date = .safe("date"),
-                .href = .abx("href"),
-            },
+            .{ .name = .safe("name"), .date = .safe("date"), .href = .abx("href") },
         },
     });
 

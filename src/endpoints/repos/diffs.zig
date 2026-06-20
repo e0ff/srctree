@@ -82,7 +82,7 @@ fn pendingNew(f: *Frame) Error!void {
     var desc: ?[]const u8 = null;
 
     const routing_data = RouteData.init(f.uri) orelse return error.Unrouteable;
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(routing_data.name, vis, f.io) catch return error.DataInvalid) orelse return error.DataInvalid;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
     defer repo.raze(f.alloc, f.io);
@@ -812,7 +812,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
     if (updatePatchView(f)) |_| return f.redirect(f.request.uri, .see_other) catch unreachable;
     const patch_view_mode = updateFetchPatchView(f) catch .inlined;
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.DataInvalid) orelse return error.DataInvalid;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
     defer repo.raze(f.alloc, f.io);
@@ -1005,6 +1005,7 @@ const Git = @import("../../git.zig");
 const Highlighting = @import("../../syntax-highlight.zig");
 const Humanize = @import("../../humanize.zig");
 const repos = @import("../../repos.zig");
+const Repo = @import("../../Repo.zig");
 const endpt_repos = @import("../repos.zig");
 const Patch = @import("../../Patch.zig");
 const Route = verse.Router;

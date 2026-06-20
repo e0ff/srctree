@@ -100,7 +100,7 @@ pub const RepoRouter = struct {
         };
     }
 
-    pub fn exists(self: RepoRouter, vis: repos.Visibility.Select, io: Io) bool {
+    pub fn exists(self: RepoRouter, vis: Repo.Visibility.Select, io: Io) bool {
         return repos.exists(self.name, vis, io);
     }
 
@@ -128,7 +128,7 @@ pub const RepoRouter = struct {
 
 pub fn navButtons(f: *Frame) ![2]S.NavButtons {
     const rd = RouteData.init(f.uri) orelse return error.InvalidURI;
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     if (!rd.exists(vis, f.io)) return error.InvalidURI;
     var i_count: usize = 0;
     var d_count: usize = 0;
@@ -208,7 +208,7 @@ fn useGitProto(f: *const Frame) bool {
 pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
     const rd = RouteData.init(f.uri) orelse return list;
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     if (rd.exists(vis, f.io)) {
         if (useGitProto(f)) return gitweb.router(f);
 
@@ -444,8 +444,8 @@ fn list(f: *Frame) Router.Error!void {
     const udata = f.request.data.query.validate(RepoSortReq) catch return error.DataInvalid;
     const tag_sort: bool = if (udata.sort) |srt| if (eql(u8, srt, "tag")) true else false else false;
 
-    const vis: repos.Visibility.Select = if (f.user) |_| .all else .public_only;
-    var repo_iter = repos.allRepoIterator(vis, f.io) catch return error.Unknown;
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
+    var repo_iter = Repo.allRepoIterator(vis, f.io) catch return error.Unknown;
     var current_repos: ArrayList(Git.Repo) = .empty;
     while (repo_iter.next(f.io) catch return error.Unknown) |rpo_| {
         var rpo = rpo_;
@@ -514,6 +514,7 @@ const S = verse.template.Structs;
 const ROUTE = Router.ROUTE;
 const Humanize = @import("../humanize.zig");
 const repos = @import("../repos.zig");
+const Repo = @import("../Repo.zig");
 const Git = @import("../git.zig");
 const Highlight = @import("../syntax-highlight.zig");
 const Commits = @import("repos/commits.zig");

@@ -2,7 +2,7 @@ pub fn treeBlob(frame: *Frame) Router.Error!void {
     const rd = RouteData.init(frame.uri) orelse return error.Unrouteable;
     _ = frame.uri.next();
 
-    const vis: repos.Visibility.Select = if (frame.user) |_| .all else .public_only;
+    const vis: Repo.Visibility.Select = if (frame.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, frame.io) catch return error.Unknown) orelse return error.Unrouteable;
     repo.loadData(frame.alloc, frame.io) catch return error.Unknown;
     defer repo.raze(frame.alloc, frame.io);
@@ -219,5 +219,6 @@ const S = verse.template.Structs;
 const PageData = verse.template.PageData;
 const Router = verse.Router;
 const repos = @import("../../repos.zig");
+const Repo = @import("../../Repo.zig");
 const Git = @import("../../git.zig");
 const Highlight = @import("../../syntax-highlight.zig");

@@ -1,14 +1,18 @@
 const repos = @This();
 
 const DEBUG = false;
-pub var dirs: RepoDirs = .{};
 
-pub const RepoDirs = struct {
+const Visibility = @import("Repo.zig").Visibility;
+const Vis = Visibility;
+
+pub var dirs: Dirs = .{};
+
+pub const Dirs = struct {
     public: ?[]const u8 = "./repos",
     private: ?[]const u8 = null,
     secret: ?[]const u8 = null,
 
-    pub fn directory(rds: RepoDirs, vis: Visibility, io: Io) !std.Io.Dir {
+    pub fn directory(rds: Dirs, vis: Visibility, io: Io) !std.Io.Dir {
         var cwd = std.Io.Dir.cwd();
         return cwd.openDir(io, switch (vis) {
             .public => rds.public orelse return error.NoDirectory,
@@ -18,61 +22,6 @@ pub const RepoDirs = struct {
         }, .{ .iterate = true });
     }
 };
-
-pub const Visibility = enum {
-    public,
-    unlisted,
-    private,
-    secret,
-
-    pub const len = @typeInfo(Visibility).@"enum".fields.len;
-
-    pub const Select = struct {
-        pub const public_only: Select = .{ .public = true };
-        pub const unlisted_only: Select = .{ .unlisted = true };
-        pub const private_only: Select = .{ .private = true };
-        pub const secret_only: Select = .{ .secret = true };
-        pub const all: Select = .{ .public = true, .unlisted = true, .private = true, .secret = true };
-        pub const default: Select = .public_only;
-
-        public: bool = false,
-        unlisted: bool = false,
-        private: bool = false,
-        secret: bool = false,
-    };
-
-    pub fn isVisible(v: Visibility, target: Select) bool {
-        return switch (v) {
-            .public => target.public,
-            .unlisted => target.unlisted,
-            .private => target.private,
-            .secret => target.secret,
-        };
-    }
-
-    /// public, but use with caution, might cause side channel leakage
-    pub fn fromConfig(name: []const u8) Visibility {
-        if (global_config.repos) |crepos| {
-            if (crepos.private_repos) |hr| {
-                // if you actually use null, I hate you!
-                var repo_itr = std.mem.tokenizeAny(u8, hr, "\x00|;, \t");
-                while (repo_itr.next()) |r| {
-                    if (eql(u8, name, r))
-                        return .private;
-                }
-            } else if (crepos.unlisted_repos) |hr| {
-                // if you actually use null, I hate you!
-                var repo_itr = std.mem.tokenizeAny(u8, hr, "\x00|;, \t");
-                while (repo_itr.next()) |r| {
-                    if (eql(u8, name, r))
-                        return .unlisted;
-                }
-            }
-        }
-        return .public;
-    }
-};
-const Vis = Visibility;
 
 /// public, but use with caution, might cause side channel leakage
 pub fn isHidden(name: []const u8) bool {
@@ -124,38 +73,6 @@ pub fn allNames(a: Allocator, io: Io) !ArrayList([]u8) {
         try list.append(a, try a.dupe(u8, dir.name));
     }
     return list;
-}
-
-pub const RepoIterator = struct {
-    dir: Io.Dir,
-    itr: Io.Dir.Iterator,
-    vis: Visibility.Select,
-    /// only valid until the following call to next()
-    current_name: ?[]const u8 = null,
-
-    pub fn next(ri: *RepoIterator, io: Io) !?Git.Repo {
-        while (try ri.itr.next(io)) |file| {
-            if (file.kind != .directory and file.kind != .sym_link) continue;
-            if (file.name[0] == '.') continue;
-            if (!Vis.fromConfig(file.name).isVisible(ri.vis)) continue;
-            const rdir = ri.dir.openDir(io, file.name, .{}) catch continue;
-            ri.current_name = file.name;
-            return try Git.Repo.init(rdir, io);
-        }
-        ri.current_name = null;
-        ri.dir.close(io);
-        return null;
-    }
-};
-
-pub fn allRepoIterator(vis: Visibility.Select, io: Io) !RepoIterator {
-    // TODO
-    const dir = try dirs.directory(.public, io);
-    return .{
-        .dir = dir,
-        .itr = dir.iterate(),
-        .vis = vis,
-    };
 }
 
 pub fn containsName(name: []const u8) bool {
@@ -240,23 +157,23 @@ pub const Agent = struct {
         var update: Updated = .{};
         var rbuf: [1024]u8 = undefined;
         const sync_str = dir.readFile(io, "srctree_sync", &rbuf) catch return .{};
-        if (indexOf(u8, sync_str, "upstream_push ")) |i| {
-            if (indexOfPos(u8, sync_str, i, "\n")) |j| {
+        if (findPos(u8, sync_str, 0, "upstream_push ")) |i| {
+            if (findPos(u8, sync_str, i, "\n")) |j| {
                 update.upstream_push = parseInt(i64, sync_str[i + 14 .. j], 10) catch 0;
             }
         }
-        if (indexOf(u8, sync_str, "upstream_pull ")) |i| {
-            if (indexOfPos(u8, sync_str, i, "\n")) |j| {
+        if (findPos(u8, sync_str, 0, "upstream_pull ")) |i| {
+            if (findPos(u8, sync_str, i, "\n")) |j| {
                 update.upstream_pull = parseInt(i64, sync_str[i + 14 .. j], 10) catch 0;
             }
         }
-        if (indexOf(u8, sync_str, "downstream_push ")) |i| {
-            if (indexOfPos(u8, sync_str, i, "\n")) |j| {
+        if (findPos(u8, sync_str, 0, "downstream_push ")) |i| {
+            if (findPos(u8, sync_str, i, "\n")) |j| {
                 update.downstream_push = parseInt(i64, sync_str[i + 16 .. j], 10) catch 0;
             }
         }
-        if (indexOf(u8, sync_str, "downstream_pull ")) |i| {
-            if (indexOfPos(u8, sync_str, i, "\n")) |j| {
+        if (findPos(u8, sync_str, 0, "downstream_pull ")) |i| {
+            if (findPos(u8, sync_str, i, "\n")) |j| {
                 update.downstream_pull = parseInt(i64, sync_str[i + 16 .. j], 10) catch 0;
             }
         }
@@ -383,12 +300,9 @@ const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const Writer = std.Io.Writer;
 const Io = std.Io;
-const fs = std.fs;
 const eql = std.mem.eql;
-const indexOf = std.mem.indexOf;
-const indexOfPos = std.mem.indexOfPos;
+const findPos = std.mem.findPos;
 const parseInt = std.fmt.parseInt;
 
 const Git = @import("git.zig");
-const SrcConfig = @import("main.zig").SrcConfig;
 const global_config = &@import("Config.zig").global;
