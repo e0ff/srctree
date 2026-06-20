@@ -37,9 +37,32 @@ fn gitHttp(f: *Frame) Error!void {
 fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
     const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
     const method = @tagName(f.request.method);
+    const datadir = try types.currentPathAlloc(f.alloc, f.io);
+    errdefer f.alloc.free(datadir);
+    const username = if (f.user) |usr|
+        usr.username orelse "anon"
+    else
+        "anon";
+
+    var uri = f.uri;
+    uri.reset();
+    _ = uri.next() orelse return error.InvalidURI;
+    _ = uri.next() orelse return error.InvalidURI;
+    const path_tr = try allocPrint(f.alloc, "repos/{s}/{s}", .{ rd.name, uri.rest() });
+    errdefer f.alloc.free(path_tr);
+    log.warn("pathtr {s}", .{path_tr});
 
     var map = std.process.Environ.Map.init(f.alloc);
+    try map.array_hash_map.ensureTotalCapacity(f.alloc, 32);
     errdefer map.deinit();
+
+    // git env
+    try map.put("GIT_HTTP_EXPORT_ALL", "true");
+    try map.put("PATH_TRANSLATED", path_tr);
+    try map.put("REMOTE_ADDR", f.request.remote_addr);
+    try map.put("REQUEST_METHOD", method);
+    try map.put("QUERY_STRING", "");
+    try map.put("REMOTE_USER", username);
 
     switch (f.downstream.gateway) {
         .zwsgi => |z| for (z.vars.items) |vars| {
@@ -50,22 +73,6 @@ fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
         },
         else => @panic("not implemented"),
     }
-    try map.put("GIT_HTTP_EXPORT_ALL", "true");
-    try map.put("REMOTE_ADDR", f.request.remote_addr);
-    try map.put("REQUEST_METHOD", method);
-    try map.put("QUERY_STRING", "");
-
-    const username = if (f.user) |usr| usr.username orelse "anon" else "anon";
-
-    try map.put("REMOTE_USER", username);
-
-    try map.put("SRCTREE_DIRECT_ENABLED", "true");
-    const datadir = try types.currentPathAlloc(f.alloc, f.io);
-    try map.put("SRCTREE_DIRECT_DATADIR", datadir);
-    try map.put("SRCTREE_HTTP", "true");
-    try map.put("SRCTREE_HOST", try (f.request.host orelse return error.DataMissing).valid());
-    try map.put("SRCTREE_REPO", rd.name);
-    if (f.user) |usr| if (usr.username) |name| try map.put("SRCTREE_USER", name);
 
     const qstr = f.request.data.query.bytes;
     if (startsWith(u8, qstr, "service=git-")) {
@@ -76,35 +83,36 @@ fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
         } else log.warn("query string '{s}'", .{qstr});
     } else log.warn("query string '{s}'", .{qstr});
 
-    if (f.request.headers.getCustom("HTTP_CONTENT_TYPE")) |ct| {
-        try map.put("CONTENT_TYPE", ct.list.items[0]);
-    } else {
-        try map.put("CONTENT_TYPE", "");
-    }
+    try map.put("CONTENT_TYPE", if (f.request.headers.getCustom("HTTP_CONTENT_TYPE")) |ct|
+        ct.list.items[0]
+    else
+        "");
 
-    var uri = f.uri;
-    uri.reset();
-    _ = uri.first();
-    _ = uri.next();
-    const path_tr = allocPrint(f.alloc, "repos/{s}/{s}", .{ rd.name, uri.rest() }) catch unreachable;
-    log.warn("pathtr {s}", .{path_tr});
-    try map.put("PATH_TRANSLATED", path_tr);
+    // srctree env
+    try map.put("SRCTREE_DIRECT_ENABLED", "true");
+    try map.put("SRCTREE_DIRECT_DATADIR", datadir);
+    try map.put("SRCTREE_HTTP", "true");
+    try map.put("SRCTREE_HOST", try (f.request.host orelse return error.DataMissing).valid());
+    try map.put("SRCTREE_REPO", rd.name);
+
+    if (f.user) |usr| {
+        if (usr.username) |name| {
+            try map.put("SRCTREE_USER", name);
+        }
+    }
 
     return map;
 }
 
 fn gzipEncoded(f: *const Frame) bool {
     switch (f.downstream.gateway) {
-        .zwsgi => |z| {
-            for (z.vars.items) |vars| {
-                log.debug("each {s} {s}", .{ vars.key, vars.val });
-                if (eql(u8, vars.key, "HTTP_CONTENT_ENCODING")) {
-                    if (eql(u8, vars.val, "gzip"))
-                        return true;
-                    log.err("unexpected encoding", .{});
-
-                    return false;
-                }
+        .zwsgi => |z| for (z.vars.items) |vars| {
+            log.debug("each {s} {s}", .{ vars.key, vars.val });
+            if (eql(u8, vars.key, "HTTP_CONTENT_ENCODING")) {
+                if (eql(u8, vars.val, "gzip"))
+                    return true;
+                log.err("unexpected encoding", .{});
+                return false;
             }
         },
         else => @panic("not implemented"),
@@ -112,17 +120,40 @@ fn gzipEncoded(f: *const Frame) bool {
     return false;
 }
 
-const hooks_path = "./hooks/";
+const default_hooks_path = "./zig-out/bin/hooks";
+
 fn spawn(f: *const Frame) !std.process.Child {
     var map = try prepareEnv(f);
     defer map.deinit();
 
+    const core_path = "core.hooksPath=";
+
+    var realpath_b: [2048]u8 = undefined;
+    const dir = std.Io.Dir.cwd().openDir(f.io, ".", .{}) catch std.Io.Dir.cwd();
+    defer dir.close(f.io);
+    const len = dir.realPathFile(f.io, default_hooks_path, &realpath_b) catch |err| b: {
+        std.debug.print("err {}\n", .{err});
+        break :b 0;
+    };
+
+    var b: [2048]u8 = undefined;
+    const config = try print(&b, core_path ++ "{s}", .{
+        if (len > 0) realpath_b[0..len] else default_hooks_path,
+    });
+    std.debug.print("path {s}\n", .{config});
+
     const argv: []const []const u8 = if ((Config.global.git orelse Config.Git.default).hooks_disabled)
         &.{ "git", "http-backend" }
     else
-        &.{ "git", "-c", "core.hooksPath=" ++ hooks_path, "http-backend" };
+        &.{ "git", "-c", config, "http-backend" };
 
-    return std.process.spawn(f.io, .{ .argv = argv, .stdin = .pipe, .stdout = .pipe, .stderr = .pipe, .environ_map = &map }) catch |err| {
+    return std.process.spawn(f.io, .{
+        .argv = argv,
+        .stdin = .pipe,
+        .stdout = .pipe,
+        .stderr = .pipe,
+        .environ_map = &map,
+    }) catch |err| {
         log.err("Unable to spawn for gitweb {}", .{err});
         return error.ServerFault;
     };
@@ -159,12 +190,13 @@ fn receivePackExternal(f: *Frame) Error!void {
 
     if (f.user == null) {
         // TODO visibility
-        var repo = (repos.open(rd.name, .public_only, f.io) catch return error.ServerFault) orelse return error.InvalidURI;
+        var repo = (repos.open(rd.name, .public_only, f.io) catch
+            return error.ServerFault) orelse
+            return error.InvalidURI;
         repo.loadConfig(f.alloc, f.io) catch return error.ServerFault;
         if (repo.config.?.srctree) |cfg| {
             if (cfg.anonpushenabled) |enabled| {
-                if (!enabled)
-                    return error.Unauthorized;
+                if (!enabled) return error.Unauthorized;
             } else return error.Unauthorized;
         } else return error.Unauthorized;
     }
@@ -186,11 +218,10 @@ fn receivePackExternal(f: *Frame) Error!void {
     stdin.close(f.io);
 
     const stdout = child.stdout orelse return error.ServerFault;
-    var r_b: [6400]u8 = undefined; // This is what I saw while debugging
+    var r_b: [6400]u8 = undefined; // This is the size seen during debugging
     var stdout_r = stdout.reader(f.io, &r_b);
 
-    // we just guess and assume it'll return 200
-    // checking would be better
+    // we just guess and assume it'll return 200 checking would be better
     f.downstream.writer.writeAll("HTTP/1.1 200 OK\r\n") catch
         return debugStderr("unable to start headers", &child, f.io);
 
