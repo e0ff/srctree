@@ -24,9 +24,7 @@ fn list(f: *Frame) Router.Error!void {
             .git_uri = null,
             .upstream = null,
         },
-        .artifacts = &.{
-            .{ .name = .safe("name"), .date = .safe("date"), .href = .abx("href") },
-        },
+        .artifacts = &.{.{ .name = .safe("name"), .date = .safe("date"), .href = .abx("href") }},
     });
 
     return f.sendPage(&page);
@@ -38,31 +36,15 @@ fn view(f: *Frame) Router.Error!void {
 }
 
 const std = @import("std");
-const Allocator = std.mem.Allocator;
-const ArrayList = std.ArrayList;
-const Io = std.Io;
-const Reader = Io.Reader;
-const Writer = Io.Writer;
-const allocPrint = std.fmt.allocPrint;
-const startsWith = std.mem.startsWith;
-const endsWith = std.mem.endsWith;
-const find = std.mem.find;
-const eql = std.mem.eql;
-const findPos = std.mem.findPos;
-const findScalarPos = std.mem.findScalarPos;
-const countScalar = std.mem.countScalar;
-const log = std.log.scoped(.repo_search);
-
+//const Allocator = std.mem.Allocator;
+//const Io = std.Io;
+//const allocPrint = std.fmt.allocPrint;
+const Repo = @import("../../Repo.zig");
 const repos = @import("../../repos.zig");
 const RepoEndpoint = @import("../repos.zig");
 const RouteData = RepoEndpoint.RepoRouter;
-const git = @import("../../git.zig");
-
 const verse = @import("verse");
 const T = verse.template;
-const S = verse.template.Structs;
-const abx = verse.abx;
 const Frame = verse.Frame;
 const Router = verse.Router;
-const Match = Router.Match;
 const GET = Router.GET;

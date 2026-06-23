@@ -123,6 +123,22 @@ fn blob(f: *Frame, rd: RouteData, repo: *Git.Repo, tree: Git.Tree) Router.Error!
         if (ext) |e| e else "",
     });
 
+    var w: Io.Writer.Allocating = .init(f.alloc);
+    for (files.blobs) |b| {
+        if (!b.isFile())
+            try w.writer.print(
+                "<span class=\"tree\"><a href=\"/repo/{s}/tree/{s}/\">{s}</a></span>\n",
+                .{ rd.name, b.name, b.name },
+            );
+    }
+    for (files.blobs) |b| {
+        if (b.isFile())
+            try w.writer.print(
+                "<span class=\"file\"><a href=\"{s}\">{s}</a></span>\n",
+                .{ b.name, b.name },
+            );
+    }
+
     var page = BlobPage.init(.{
         .meta_head = .{
             .title = meta_title,
@@ -131,12 +147,12 @@ fn blob(f: *Frame, rd: RouteData, repo: *Git.Repo, tree: Git.Tree) Router.Error!
         .body_header = f.response_data.get(S.BodyHeaderHtml).?.*,
         .repo_header = .{
             .repo_name = .abx(rd.name),
-            // TODO FIXME
             .description = .abx(repo.description(f.alloc, f.io) catch ""),
             .blame = .{ .repo_name = .abx(rd.name), .filename = .abx(path.buffer) },
             .git_uri = .{ .host = .safe(try f.request.host.?.valid()), .repo_name = .abx(rd.name) },
             .upstream = upstream,
         },
+        .tree_view = .safe(w.written()),
         .filename = .abx(blb.name),
         .blob_lines = wrapped,
     });
