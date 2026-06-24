@@ -86,24 +86,31 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
             return null;
         }
         switch (ua.agent) {
-            .bot => |bot| switch (bot.name) {
-                .googlebot => return null,
-                .bingbot => return null,
-                .unknown => {
-                    if (find(u8, fr.request.user_agent.?.string, "SearchBot/1.0") == null) return null;
-                    return dropRequest(fr);
-                },
-                .gptbot,
-                .metaexternalagent,
-                .youbot,
-                => return dropRequest(fr),
+            .bot => |bot| {
+                switch (fr.downstream.gateway) {
+                    .zwsgi => |zw| if (zw.known.get(.SERVER_PORT)) |port|
+                        if (eql(u8, port, "444")) return dropRequest(fr),
+                    else => {},
+                }
+                switch (bot.name) {
+                    .googlebot => return null,
+                    .bingbot => return null,
+                    .unknown => {
+                        if (find(u8, fr.request.user_agent.?.string, "SearchBot/1.0") == null) return null;
+                        return dropRequest(fr);
+                    },
+                    .gptbot,
+                    .metaexternalagent,
+                    .youbot,
+                    => return dropRequest(fr),
 
-                else => if (bot.malicious) {
-                    log.err("Dropping malicious traffic", .{});
-                    fr.dumpDebugData(.{});
-                    ua.dumpValidation(fr.request);
-                    return Router.defaultResponse(.forbidden);
-                },
+                    else => if (bot.malicious) {
+                        log.err("Dropping malicious traffic", .{});
+                        fr.dumpDebugData(.{});
+                        ua.dumpValidation(fr.request);
+                        return Router.defaultResponse(.forbidden);
+                    },
+                }
             },
             .browser => |bwsr| {
                 const real_ua = ua.validate(fr.request);
