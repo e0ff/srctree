@@ -114,7 +114,12 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
             },
             .browser => |bwsr| {
                 const real_ua = ua.validate(fr.request);
-                log.warn("Claims to be a browser\n", .{});
+                log.warn("Claims to be a browser", .{});
+                switch (fr.downstream.gateway) {
+                    .zwsgi => |zw| if (zw.known.get(.SERVER_PORT)) |port|
+                        if (eql(u8, port, "444")) return dropRequest(fr),
+                    else => {},
+                }
 
                 // hastur
                 if ((botdetect.score >= 1 or (real_ua.agent == .bot and
