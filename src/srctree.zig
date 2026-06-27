@@ -129,6 +129,13 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                 if ((bwsr.name == .chrome or bwsr.name == .edge) and
                     bwsr.version <= 137 and bwsr.version >= 130)
                     return dropRequest(fr);
+
+                if (fr.request.headers.getCustomValue("HTTP_SEC_CH_UA") catch null) |val| {
+                    if (startsWith(u8, val,
+                        \\"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"
+                    ))
+                        return dropRequest(fr);
+                }
             },
             .unknown => if (startsWith(u8, fr.request.user_agent.?.string, "Opera/"))
                 return dropRequest(fr),
