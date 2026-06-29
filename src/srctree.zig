@@ -130,11 +130,17 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                     bwsr.version <= 137 and bwsr.version >= 130)
                     return dropRequest(fr);
 
-                if (fr.request.headers.getCustomValue("HTTP_SEC_CH_UA") catch null) |val| {
-                    if (startsWith(u8, val,
-                        \\"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"
-                    ))
-                        return dropRequest(fr);
+                const bads = [_][]const u8{
+                    \\"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"
+                    ,
+                    \\"Not_A Brand";v="8", "Chromium";v=
+                    ,
+                };
+                inline for (bads) |bad| {
+                    if (fr.request.headers.getCustomValue("HTTP_SEC_CH_UA") catch null) |val| {
+                        if (startsWith(u8, val, bad))
+                            return dropRequest(fr);
+                    }
                 }
             },
             .unknown => if (startsWith(u8, fr.request.user_agent.?.string, "Opera/"))
