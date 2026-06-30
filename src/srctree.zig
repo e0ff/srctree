@@ -135,6 +135,8 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                     ,
                     \\"Not_A Brand";v="8", "Chromium";v=
                     ,
+                    \\"Not/A)Brand";v="99", "Chromium";v=
+                    ,
                 };
                 inline for (bads) |bad| {
                     if (fr.request.headers.getCustomValue("HTTP_SEC_CH_UA") catch null) |val| {
