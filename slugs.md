@@ -16,3 +16,4 @@ you're not required to give feedback to srctree
 git; but distributed
 the github you have at home
 adding sha256 support was easy
+<russriguez> can you imagine the time when advertising is added to git commits to keep github "free"
