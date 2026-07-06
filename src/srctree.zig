@@ -104,11 +104,16 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                     .youbot,
                     => return dropRequest(fr),
 
-                    else => if (bot.malicious) {
-                        log.err("Dropping malicious traffic", .{});
-                        fr.dumpDebugData(.{});
-                        ua.dumpValidation(fr.request);
-                        return Router.defaultResponse(.forbidden);
+                    else => {
+                        const ua_str = fr.request.user_agent.?.string;
+                        const ia_ua = "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0";
+                        const ia_bot_ua = find(u8, ua_str, ia_ua) == null;
+                        if (bot.malicious and !ia_bot_ua) {
+                            log.err("Dropping malicious traffic", .{});
+                            fr.dumpDebugData(.{});
+                            ua.dumpValidation(fr.request);
+                            return Router.defaultResponse(.forbidden);
+                        }
                     },
                 }
             },
