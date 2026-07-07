@@ -27,7 +27,6 @@ pub fn build(b: *std.Build) void {
     const srctree_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
-        .optimize = optimize,
     });
     const srctree = b.addExecutable(.{
         .name = "srctree",
@@ -50,40 +49,25 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     // srctree tests
-    const unit_tests = b.addTest(.{
-        .root_module = srctree_mod,
-        .use_llvm = use_llvm,
-        .use_lld = use_llvm,
-    });
+    const unit_tests = b.addTest(.{ .root_module = srctree_mod, .use_llvm = use_llvm, .use_lld = use_llvm });
     const run_unit_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
     // Partner Binaries
+    //const maild_mod = b.createModule(.{
+    //    .root_source_file = b.path("src/mailer.zig"),
+    //    .target = target,
+    //});
     //const maild = b.addExecutable(.{
     //    .name = "srctree-maild",
-    //    .root_module = b.createModule(.{
-    //        .root_source_file = b.path("src/mailer.zig"),
-    //        .target = target,
-    //        .optimize = optimize,
-    //    }),
+    //    .root_module = maild_mod,
     //    .use_llvm = use_llvm,
     //    .use_lld = use_llvm,
     //});
     //b.installArtifact(maild);
 
-    //const send_email = b.addRunArtifact(maild);
-    //send_email.step.dependOn(b.getInstallStep());
-    //const send_email_step = b.step("email", "send an email");
-    //send_email_step.dependOn(&send_email.step);
-    //if (b.args) |args| {
-    //    send_email.addArgs(args);
-    //}
-
-    const hooks_mod = b.createModule(.{
-        .root_source_file = b.path("src/hooks.zig"),
-        .target = target,
-    });
+    const hooks_mod = b.createModule(.{ .root_source_file = b.path("src/hooks.zig"), .target = target });
     const hooks = b.addExecutable(.{ .name = "srctree-hooks", .root_module = hooks_mod });
     const hook_artifact = b.addInstallArtifact(hooks, .{ .dest_sub_path = "hooks/update" });
     b.getInstallStep().dependOn(&hook_artifact.step);
