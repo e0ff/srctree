@@ -31,11 +31,11 @@ fn gitHttp(f: *Frame) Error!void {
     if (eql(u8, qstr, "service=git-upload-pack") or eql(u8, uri, "git-upload-pack"))
         return uploadPack(f);
 
-    return error.Unrouteable;
+    return error.ServerFault;
 }
 
 fn prepareEnv(f: *const Frame) !std.process.Environ.Map {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     const method = @tagName(f.request.method);
     const datadir = try types.currentPathAlloc(f.alloc, f.io);
     errdefer f.alloc.free(datadir);
@@ -160,10 +160,10 @@ fn spawn(f: *const Frame) !std.process.Child {
 }
 
 fn receivePack(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     if (!rd.exists(.all, f.io)) {
         if (f.user) |_| return try receivePackInternal(f);
-        return error.Unrouteable;
+        return error.ServerFault;
     }
     return try receivePackExternal(f);
 }
@@ -185,7 +185,7 @@ fn receivePackInternal(f: *Frame) Error!void {
 }
 
 fn receivePackExternal(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     const gz_encoded = gzipEncoded(f);
 
     if (f.user == null) {
@@ -239,7 +239,7 @@ fn receivePackExternal(f: *Frame) Error!void {
 }
 
 fn uploadPack(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     if (!rd.exists(.all, f.io) and f.user != null) {
         return try uploadPackInternal(f);
     }

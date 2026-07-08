@@ -883,7 +883,7 @@ test "ref link" {
 }
 
 const syntax = @import("../syntax-highlight.zig");
-const abx = @import("verse").abx;
+const abx = @import("verse").Antibiotic;
 
 const std = @import("std");
 const Io = std.Io;

@@ -418,13 +418,13 @@ pub fn razeCache(a: Allocator) void {
     cached_emails.deinit();
 }
 
-const UserCommitsPage = Template.PageData("user_commits.html");
+const UserCommitsPage = T.PageData("user_commits.html");
 
 const CommitFlexReq = struct {
     user: ?[]const u8,
 };
 
-pub fn commitFlex(ctx: *Verse.Frame) Error!void {
+pub fn commitFlex(ctx: *Frame) Error!void {
     var nowish = DateTime.now(ctx.io);
     var email: []const u8 = "";
     var tz_offset: ?i17 = null;
@@ -627,13 +627,14 @@ const Repo = @import("../Repo.zig");
 
 const global_config = &@import("../Config.zig").global;
 
-const Verse = @import("verse");
-const abx = Verse.abx;
-const Template = Verse.template;
-const DOM = Verse.template.html.DOM;
-const HTML = Verse.template.html;
-const S = Template.Structs;
+const verse = @import("verse");
+const Frame = verse.Frame;
+const abx = verse.Antibiotic;
+const T = verse.template;
+const DOM = verse.template.html.DOM;
+const HTML = verse.template.html;
+const S = T.Structs;
 const JournalRows = S.UserCommitsHtml.Months.JournalRows;
 
-const Route = Verse.Router;
+const Route = verse.Router;
 const Error = Route.Error;

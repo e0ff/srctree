@@ -13,12 +13,12 @@ const style_blocks: [10][]const u8 = .{
     " blame-age-old",
 };
 pub fn blame(f: *Frame) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     std.debug.assert(rd.verb.? == .blame);
     const blame_file = (rd.path orelse return error.InvalidURI).rest();
 
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
-    var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.Unrouteable;
+    var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.ServerFault;
     // TODO be more specific
     //repo.loadRemotes() catch {};
     repo.loadData(f.alloc, f.io) catch {}; // This is a safe optional because it's only used to get upstream
@@ -63,13 +63,13 @@ pub fn blame(f: *Frame) Router.Error!void {
     const formatted = if (Highlight.Language.guessFromFilename(blame_file)) |lang|
         Highlight.highlight(lang, source_lines.items, f.alloc, f.io) catch return error.Unknown
     else
-        allocPrint(f.alloc, "{f}", .{verse.abx.Html{ .text = source_lines.items }}) catch return error.Unknown;
+        allocPrint(f.alloc, "{f}", .{Abx.Html{ .text = source_lines.items }}) catch return error.Unknown;
 
     var litr = std.mem.splitScalar(u8, formatted, '\n');
     for (lines) |*line|
         line.line = litr.next() orelse break;
 
-    const file_name = try allocPrint(f.alloc, "{f}", .{abx.Html{ .text = blame_file }});
+    const file_name = try allocPrint(f.alloc, "{f}", .{Abx.Html{ .text = blame_file }});
     const show_emails = f.user != null;
     const wrapped_blames = try wrapLineNumbersBlame(f.alloc, f.io, lines, map, rd.name, file_name, show_emails);
 
@@ -116,7 +116,7 @@ fn wrapLineNumbersBlame(
         const skip = src.sha.eql(prev_sha);
         if (!skip) prev_sha = src.sha;
         const bcommit = map.get(src.sha) orelse unreachable;
-        const email = if (!include_email) "" else allocPrint(a, "{f}", .{abx.Html{ .text = bcommit.author.email }}) catch unreachable;
+        const email = if (!include_email) "" else allocPrint(a, "{f}", .{Abx.Html{ .text = bcommit.author.email }}) catch unreachable;
         sha.* = src.sha.text().slice()[0..8].*; // FIXME
         const parent_sha: ?Git.Sha = if (bcommit.parent) |bp| .init(bp) else null;
         blame_line.* = .{
@@ -130,7 +130,7 @@ fn wrapLineNumbersBlame(
                 null,
             .time_style = style_blocks[bcommit.age_block],
             .author_email = .{
-                .author = if (skip) null else allocPrint(a, "{f}", .{abx.Html{ .text = bcommit.author.name }}) catch unreachable,
+                .author = if (skip) null else allocPrint(a, "{f}", .{Abx.Html{ .text = bcommit.author.name }}) catch unreachable,
                 .email = .abx(email),
             },
             .m_sha = if (skip) null else sha,
@@ -264,7 +264,7 @@ const Sha = Git.Sha;
 const Highlight = @import("../../syntax-highlight.zig");
 
 const verse = @import("verse");
-const abx = verse.abx;
+const Abx = verse.Antibiotic;
 const Frame = verse.Frame;
 const S = verse.template.Structs;
 const PageData = verse.template.PageData;

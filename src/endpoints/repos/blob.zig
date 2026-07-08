@@ -1,9 +1,9 @@
 pub fn treeBlob(frame: *Frame) Router.Error!void {
-    const rd = RouteData.init(frame.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(frame.uri) orelse return error.ServerFault;
     _ = frame.uri.next();
 
     const vis: Repo.Visibility.Select = if (frame.user) |_| .all else .public_only;
-    var repo = (repos.open(rd.name, vis, frame.io) catch return error.Unknown) orelse return error.Unrouteable;
+    var repo = (repos.open(rd.name, vis, frame.io) catch return error.Unknown) orelse return error.ServerFault;
     repo.loadData(frame.alloc, frame.io) catch return error.Unknown;
     defer repo.raze(frame.alloc, frame.io);
 
@@ -191,7 +191,7 @@ fn wrapLineNumbers(a: Allocator, text: []const u8) ![]u8 {
 
 const NewRepoPage = verse.template.PageData("repo-new.html");
 fn newRepo(f: *Frame) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     f.status = .ok;
 
     //const upstream: ?S.BaseRepoHeaderHtml.Upstream = if (repo.findRemote("upstream")) |up| .{
@@ -229,7 +229,7 @@ const splitScalar = std.mem.splitScalar;
 const countScalar = std.mem.countScalar;
 
 const verse = @import("verse");
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 const Frame = verse.Frame;
 const S = verse.template.Structs;
 const PageData = verse.template.PageData;

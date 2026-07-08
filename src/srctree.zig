@@ -56,7 +56,7 @@ fn notFound(vrs: *Frame) Router.Error!void {
 }
 
 fn debug(_: *Frame) Router.Error!void {
-    return error.Unrouteable;
+    return error.ServerFault;
 }
 
 fn dropRequest(f: *Frame) BuildFn {
@@ -196,12 +196,9 @@ fn builder(fr: *Frame, call: BuildFn) void {
 
     fr.response_data.clone(S.BodyHeaderHtml, fr.alloc, bh) catch {};
     return call(fr) catch |err| switch (err) {
+        error.NotFound => builder(fr, notFound), // TODO catch inline
         error.InvalidURI => builder(fr, notFound), // TODO catch inline
         error.WriteFailed => log.err("Unexpected WriteFailure", .{}),
-        error.Unrouteable => {
-            log.err("Unrouteable", .{});
-            unreachable;
-        },
         error.NotImplemented, error.Unknown => {
             log.err("Unexpected error '{}'", .{err});
             if (@import("builtin").mode == .Debug) unreachable;
@@ -247,7 +244,7 @@ test {
 
     try endpoints.smokeTest(a, .{
         .recurse = true,
-        .soft_errors = &[_]Router.Error{ error.DataInvalid, error.DataMissing, error.Unrouteable },
+        .soft_errors = &[_]Router.Error{ error.DataInvalid, error.DataMissing },
         .retry_with_fake_user = true,
     });
 }

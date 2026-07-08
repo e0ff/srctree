@@ -85,7 +85,7 @@ const findScalar = std.mem.findScalar;
 const allocPrint = std.fmt.allocPrint;
 
 const verse = @import("verse");
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 const Frame = verse.Frame;
 const Routes = verse.Router;
 const Error = Routes.Error;

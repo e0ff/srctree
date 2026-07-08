@@ -1,9 +1,5 @@
 pub const verse_name = .repos;
-
-pub const verse_aliases = .{
-    .repo,
-};
-
+pub const verse_aliases = .{.repo};
 pub const verse_router = &router;
 
 pub const verse_endpoints_ = verse.Endpoints(.{
@@ -241,8 +237,8 @@ pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
         }
         return treeBlob;
         //return Router.defaultRouter(f, &routes);
-    } else {
-        if (useGitProto(f)) return gitweb.router(f);
+    } else if (useGitProto(f)) {
+        return gitweb.router(f);
     }
 
     return error.Unrouteable;
@@ -505,7 +501,7 @@ const eql = std.mem.eql;
 const log = std.log.scoped(.srctree);
 
 const verse = @import("verse");
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 const Frame = verse.Frame;
 const Router = verse.Router;
 const PageData = verse.template.PageData;

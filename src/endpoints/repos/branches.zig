@@ -1,7 +1,7 @@
 const BranchPage = PageData("branches.html");
 
 pub fn list(frame: *Frame) Router.Error!void {
-    const rd = RouteData.init(frame.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(frame.uri) orelse return error.ServerFault;
 
     const vis: Repo.Visibility.Select = if (frame.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, frame.io) catch return error.Unknown) orelse return error.InvalidURI;
@@ -94,7 +94,7 @@ const allocPrint = std.fmt.allocPrint;
 const verse = @import("verse");
 const T = verse.template;
 const S = verse.template.Structs;
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 const Frame = verse.Frame;
 const PageData = verse.template.PageData;
 const Router = verse.Router;

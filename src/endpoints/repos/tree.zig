@@ -86,7 +86,7 @@ pub fn tree(ctx: *Frame, rd: RouteData, repo: *Git.Repo, files: *Git.Tree) Route
         }
     } else |err| switch (err) {
         error.PathNotFound => {}, //dom.push(html.h3("unable to find this file", null));
-        else => return error.Unrouteable,
+        else => return error.ServerFault,
     }
 
     var readme: ?[]const u8 = null;
@@ -188,7 +188,7 @@ const splitScalar = std.mem.splitScalar;
 
 const verse = @import("verse");
 const Frame = verse.Frame;
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 const S = verse.template.Structs;
 const html = verse.template.html;
 const DOM = html.DOM;

@@ -279,7 +279,7 @@ const events = @import("../events.zig");
 const diffs_ep = @import("repos/diffs.zig");
 
 const verse = @import("verse");
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 const Frame = verse.Frame;
 const RouterError = verse.Router.Error;
 const T = verse.template;

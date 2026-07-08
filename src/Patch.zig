@@ -264,4 +264,4 @@ const log = std.log.scoped(.git_patch);
 
 const CURL = @import("curl.zig");
 const verse = @import("verse");
-const abx = verse.abx;
+const abx = verse.Antibiotic;

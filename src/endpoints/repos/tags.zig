@@ -1,7 +1,7 @@
 const TagPage = PageData("repo-tags.html");
 
 pub fn list(f: *Frame) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
 
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.InvalidURI;

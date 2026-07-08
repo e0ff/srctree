@@ -93,7 +93,7 @@ fn edit(f: *verse.Frame) Error!void {
 }
 
 fn editPost(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     var buf: [2048]u8 = undefined;
     if (f.request.data.post) |post| {
         const valid = post.validate(IssueCreateReq) catch return error.DataInvalid;
@@ -140,7 +140,7 @@ fn newPostError(_: *verse.Frame) Error!void {
 }
 
 fn newPost(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     var buf: [2048]u8 = undefined;
     if (f.request.data.post) |post| {
         const valid = post.validate(IssueCreateReq) catch return error.DataInvalid;
@@ -184,7 +184,7 @@ const RemoteData = struct {
 };
 
 fn newRemotePost(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     var buf: [2048]u8 = undefined;
     if (f.request.data.post) |post| {
         const valid = post.validate(RemoteIssueCreateReq) catch return error.DataInvalid;
@@ -198,7 +198,7 @@ fn newRemotePost(f: *verse.Frame) Error!void {
 }
 
 fn addComment(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     const post = f.request.data.post orelse return error.DataMissing;
     const valid = post.validate(delta_shared.AddCommentReq) catch return error.DataInvalid;
 
@@ -211,14 +211,14 @@ fn addComment(f: *verse.Frame) Error!void {
 const DeltaPage = T.PageData("delta.html");
 
 fn view(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     const delta_id = f.uri.next().?;
-    const idx = isHex(delta_id) orelse return error.Unrouteable;
+    const idx = isHex(delta_id) orelse return error.ServerFault;
 
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.DataInvalid) orelse return error.DataInvalid;
     defer repo.raze(f.alloc, f.io);
-    var delta = Delta.open(rd.name, idx, f.alloc, f.io) catch return error.Unrouteable;
+    var delta = Delta.open(rd.name, idx, f.alloc, f.io) catch return error.ServerFault;
 
     const messages = try delta_shared.genThreadMessages(
         &delta,
@@ -296,7 +296,7 @@ fn view(f: *verse.Frame) Error!void {
 }
 
 fn searchPage(f: *Frame, str: []const u8) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     const rules = try search.genRules(str, f.alloc);
 
     var itr = Delta.searchRepo(rd.name, rules.items, f.io);
@@ -311,7 +311,7 @@ fn searchPage(f: *Frame, str: []const u8) Error!void {
 }
 
 fn list(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     var default_search_buf: [0xFF]u8 = undefined;
     const def_search = try bufPrint(&default_search_buf, "repo:{s} is:issue is:open", .{rd.name});
     return searchPage(f, def_search);
@@ -530,7 +530,7 @@ const log = std.log.scoped(.verse_issue);
 
 const verse = @import("verse");
 const Frame = verse.Frame;
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 const Router = verse.Router;
 const T = verse.template;
 const Error = Router.Error;

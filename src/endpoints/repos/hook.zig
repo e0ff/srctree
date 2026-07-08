@@ -43,9 +43,9 @@ var after_party: AfterParty = .{
 };
 
 fn update(f: *Frame) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
-    var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.Unrouteable;
+    var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.ServerFault;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
 
     const update_data = f.request.data.query.validate(UpdateData) catch return error.DataInvalid;

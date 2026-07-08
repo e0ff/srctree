@@ -111,13 +111,13 @@ fn toTemplate(files: []const Gist.File, a: Allocator, io: Io) ![]S.GistHtml.Gist
     var w: Writer.Allocating = try .initCapacity(a, 20);
     defer w.deinit();
     for (files, out) |file, *o| {
-        w.writer.print("{f}", .{abx.Html{ .text = file.name }}) catch return error.OutOfMemory;
+        w.writer.print("{f}", .{Abx.Html{ .text = file.name }}) catch return error.OutOfMemory;
         const file_name = try w.toOwnedSlice();
         var formatted: []const u8 = undefined;
         if (Highlight.Language.guessFromFilename(file.name)) |lang| {
             formatted = try Highlight.highlight(lang, file.blob, a, io);
         } else {
-            w.writer.print("{f}", .{verse.abx.Html{ .text = file.blob }}) catch return error.Unknown;
+            w.writer.print("{f}", .{Abx.Html{ .text = file.blob }}) catch return error.Unknown;
 
             formatted = try w.toOwnedSlice();
         }
@@ -144,9 +144,9 @@ fn view(vrs: *Frame) Error!void {
     const files = toTemplate(gist.files, vrs.alloc, vrs.io) catch return error.Unknown;
     var page = GistPage.init(.{
         .meta_head = .{ .open_graph = .{
-            .title = try allocPrint(vrs.alloc, "A perfect paste from {f}", .{verse.abx.Html{ .text = gist.owner }}),
+            .title = try allocPrint(vrs.alloc, "A perfect paste from {f}", .{Abx.Html{ .text = gist.owner }}),
             .desc = if (gist.file_count == 1)
-                try allocPrint(vrs.alloc, "{f}", .{verse.abx.Html{ .text = gist.files[0].name }})
+                try allocPrint(vrs.alloc, "{f}", .{Abx.Html{ .text = gist.files[0].name }})
             else
                 try allocPrint(vrs.alloc, "{} files", .{gist.file_count}),
         } },
@@ -164,7 +164,7 @@ const Allocator = std.mem.Allocator;
 const Writer = std.Io.Writer;
 
 const verse = @import("verse");
-const abx = verse.abx;
+const Abx = verse.Antibiotic;
 const Frame = verse.Frame;
 const template = verse.template;
 const S = template.Structs;

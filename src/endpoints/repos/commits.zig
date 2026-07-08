@@ -168,11 +168,11 @@ pub fn viewAsPatch(f: *Frame, sha: []const u8, repo: Git.Repo) Error!void {
 }
 
 pub fn viewCommit(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
     if (rd.verb == null) return commitList(f);
 
-    const sha = rd.ref orelse return error.Unrouteable;
-    if (std.mem.indexOf(u8, sha, ".") != null and !std.mem.endsWith(u8, sha, ".patch")) return error.Unrouteable;
+    const sha = rd.ref orelse return error.ServerFault;
+    if (std.mem.indexOf(u8, sha, ".") != null and !std.mem.endsWith(u8, sha, ".patch")) return error.ServerFault;
 
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.ServerFault) orelse {
@@ -213,7 +213,7 @@ pub fn commitCtx(c: Git.Commit, repo: []const u8, a: Allocator, io: Io) !S.Commi
     var r: Reader = .fixed(c.body);
     var w: Writer.Allocating = try .initCapacity(a, c.body.len);
     Highlight.Markdown.translate(&r, &w.writer, a, io) catch |err| switch (err) {
-        error.InvalidMarkdown => w.writer.print("{f}", .{Verse.abx.Html{ .text = c.body }}) catch unreachable,
+        error.InvalidMarkdown => w.writer.print("{f}", .{abx.Html{ .text = c.body }}) catch unreachable,
         error.OutOfMemory, error.WriteFailed => return error.ServerFault,
     };
     const sha = try a.dupe(u8, c.sha.text().slice());
@@ -310,10 +310,10 @@ fn buildListBetween(
 }
 
 pub fn commitList(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
 
     if (f.uri.next()) |next| {
-        if (!std.mem.eql(u8, next, "commits")) return error.Unrouteable;
+        if (!std.mem.eql(u8, next, "commits")) return error.ServerFault;
     }
 
     var commitish: ?Git.Sha = null;
@@ -324,12 +324,12 @@ pub fn commitList(f: *Frame) Error!void {
     // TODO use left and right commit finding
     //if (commitish) |cmish| {
     //    std.debug.print("{s}\n", .{cmish});
-    //    if (!Git.commitish(cmish)) return error.Unrouteable;
+    //    if (!Git.commitish(cmish)) return error.ServerFault;
     //    if (std.mem.indexOf(u8, cmish, "..")) |i| {
     //        const left = cmish[0..i];
-    //        if (!Git.commitish(left)) return error.Unrouteable;
+    //        if (!Git.commitish(left)) return error.ServerFault;
     //        const right = cmish[i + 2 ..];
-    //        if (!Git.commitish(right)) return error.Unrouteable;
+    //        if (!Git.commitish(right)) return error.ServerFault;
     //        std.debug.print("{s}, {s}\n", .{ left, right });
     //    }
     //} else {}
@@ -349,7 +349,7 @@ pub fn commitList(f: *Frame) Error!void {
 }
 
 pub fn commitsBefore(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.Unrouteable;
+    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
 
     std.debug.assert(std.mem.eql(u8, "after", f.uri.next().?));
 
@@ -396,13 +396,13 @@ const print = std.fmt.bufPrint;
 const endsWith = std.mem.endsWith;
 const eql = std.mem.eql;
 const trim = std.mem.trim;
-const Verse = @import("verse");
-const Router = Verse.Router;
-const T = Verse.template;
+const verse = @import("verse");
+const Router = verse.Router;
+const T = verse.template;
 const S = T.Structs;
 const Error = Router.Error;
-const Frame = Verse.Frame;
-const abx = Verse.abx;
+const Frame = verse.Frame;
+const abx = verse.Antibiotic;
 
 const Diffs = @import("diffs.zig");
 const Repos = @import("../repos.zig");

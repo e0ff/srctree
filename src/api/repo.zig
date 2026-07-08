@@ -1,3 +1,9 @@
+const endpoints = [_]Router.Match{
+    ROUTE("", repo),
+    ROUTE("branches", repoBranches),
+    ROUTE("tags", repoTags),
+};
+
 pub fn router(ctx: *API.verse.Frame) Router.RoutingError!Router.BuildFn {
     const uri_api = ctx.uri.next() orelse return repo;
     if (!std.mem.eql(u8, uri_api, "repo")) return repo;
@@ -138,12 +144,6 @@ const API = @import("../api.zig");
 const Git = @import("../git.zig");
 const Router = API.Router;
 const verse = @import("verse");
-const abx = verse.abx;
+const abx = verse.Antibiotic;
 
 const ROUTE = Router.ROUTE;
-
-const endpoints = [_]Router.Match{
-    ROUTE("", repo),
-    ROUTE("branches", repoBranches),
-    ROUTE("tags", repoTags),
-};

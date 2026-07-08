@@ -175,7 +175,6 @@ const Thread = std.Thread;
 const Io = std.Io;
 const Server = verse.Server;
 const log = std.log;
-pub const Abx = verse.abx;
 
 const Database = @import("database.zig");
 const Repos = @import("repos.zig");
