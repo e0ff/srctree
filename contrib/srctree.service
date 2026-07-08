@@ -1,0 +1,13 @@
+[Unit]
+Description=Srctree
+After=network.target
+
+[Service]
+Type=simple
+User=srctree
+WorkingDirectory=/srv/srctree
+ExecStart=/usr/local/bin/srctree -c /etc/srctree.ini -d /srv/srctree/data
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
