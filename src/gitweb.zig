@@ -13,7 +13,7 @@ pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
     _ = f.uri.next(); // repo
     _ = f.uri.next(); // name
     // target
-    std.debug.print("gitweb router {any} {s}\n", .{ f.request.method, f.uri.peek().? });
+    log.warn("gitweb router {any} {s}", .{ f.request.method, f.uri.peek().? });
     return gitHttp;
 }
 
@@ -24,7 +24,7 @@ pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
 fn gitHttp(f: *Frame) Error!void {
     const qstr = f.request.data.query.bytes;
     const uri = f.uri.next() orelse &.{};
-    std.debug.print("uri {s}\n", .{uri});
+    log.warn("uri {s}", .{uri});
     if (eql(u8, qstr, "service=git-receive-pack") or eql(u8, uri, "git-receive-pack"))
         return receivePack(f);
 
@@ -132,7 +132,7 @@ fn spawn(f: *const Frame) !std.process.Child {
     const dir = std.Io.Dir.cwd().openDir(f.io, ".", .{}) catch std.Io.Dir.cwd();
     defer dir.close(f.io);
     const len = dir.realPathFile(f.io, default_hooks_path, &realpath_b) catch |err| b: {
-        std.debug.print("err {}\n", .{err});
+        log.err("core hooks path {}", .{err});
         break :b 0;
     };
 
@@ -140,7 +140,7 @@ fn spawn(f: *const Frame) !std.process.Child {
     const config = try print(&b, core_path ++ "{s}", .{
         if (len > 0) realpath_b[0..len] else default_hooks_path,
     });
-    std.debug.print("path {s}\n", .{config});
+    log.info("path {s}", .{config});
 
     const argv: []const []const u8 = if ((Config.global.git orelse Config.Git.default).hooks_disabled)
         &.{ "git", "http-backend" }
