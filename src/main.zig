@@ -173,6 +173,16 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
+    if (SrcConfig.global.repos) |repo_config| {
+        if (repo_config.dir) |public_repo_dir| {
+            Repos.dirs.public = public_repo_dir;
+        }
+
+        if (repo_config.private_dir) |private_repo_dir| {
+            Repos.dirs.private = private_repo_dir;
+        }
+    }
+
     Srctree.endpoints.serve(a, .{
         .mode = if (runmode == .http)
             .{ .http = .public }
