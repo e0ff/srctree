@@ -11,8 +11,8 @@ const routes = [_]Router.Match{
 
 pub const index = new;
 
-const GistPage = template.PageData("gist.html");
-const GistNewPage = template.PageData("gist_new.html");
+const GistPage = T.PageData("gist.html");
+const GistNewPage = T.PageData("gist_new.html");
 
 pub fn router(ctx: *Frame) Router.RoutingError!Router.BuildFn {
     if (!std.mem.eql(u8, ctx.uri.next() orelse "", "gist")) return error.Unrouteable;
@@ -158,22 +158,20 @@ fn view(vrs: *Frame) Error!void {
 }
 
 const std = @import("std");
-const allocPrint = std.fmt.allocPrint;
-const Io = std.Io;
 const Allocator = std.mem.Allocator;
+const Io = std.Io;
+const allocPrint = std.fmt.allocPrint;
 const Writer = std.Io.Writer;
 
 const verse = @import("verse");
 const Abx = verse.Antibiotic;
 const Frame = verse.Frame;
-const template = verse.template;
-const S = template.Structs;
-const RequestData = verse.RequestData.RequestData;
-
-const Highlight = @import("../syntax-highlight.zig");
-const Gist = @import("../types.zig").Gist;
-
+const T = verse.template;
+const S = T.Structs;
 const Router = verse.Router;
 const Error = Router.Error;
 const POST = Router.POST;
 const GET = Router.GET;
+
+const Highlight = @import("../syntax-highlight.zig");
+const Gist = @import("../types.zig").Gist;
