@@ -461,7 +461,16 @@ pub fn commitFlex(ctx: *Frame) Error!void {
     defer journal.raze(ctx.alloc, ctx.io);
 
     var all_repos = Repo.iterateAll(.public_only, ctx.io) catch return error.Unknown;
-    while (all_repos.next(ctx.io) catch return error.Unknown) |input| {
+    while (all_repos.next(ctx.io) catch |err| switch (err) {
+        error.NotAGitRepo => brk: {
+            log.warn("'{s}' is not a git repo.", .{all_repos.current_name orelse "[null repo name]"});
+            break :brk all_repos.next(ctx.io) catch return error.ServerFault;
+        },
+        else => {
+            log.err("unable to itrate repos {} stuck on {s}", .{ err, all_repos.current_name orelse "[null repo name]" });
+            return error.Unknown;
+        },
+    }) |input| {
         var repo = input;
         repo.loadData(ctx.alloc, ctx.io) catch {
             log.err("unable to load data for repo {s}", .{all_repos.current_name.?});
@@ -476,7 +485,7 @@ pub fn commitFlex(ctx: *Frame) Error!void {
         repo_count +|= 1;
     }
 
-    try journal.build(ctx.alloc, ctx.io);
+    journal.build(ctx.alloc, ctx.io) catch |err| log.err("build failed {}", .{err});
     var tcount: u16 = 0;
     for (journal.hits) |h| tcount +|= h;
 
