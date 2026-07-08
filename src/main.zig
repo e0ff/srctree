@@ -43,11 +43,13 @@ fn findConfig(target: []const u8) ?[]const u8 {
 
 const Options = struct {
     config_path: []const u8,
+    data_dir: []const u8,
     source_path: ?[]const u8,
 
     pub fn default() Options {
         return Options{
             .config_path = "./config.ini",
+            .data_dir = "data/",
             .source_path = null,
         };
     }
@@ -86,6 +88,13 @@ pub fn main(init: std.process.Init) !void {
                 std.debug.print("config file not provided", .{});
                 std.process.exit(1);
             }
+        } else if (std.mem.eql(u8, arg, "-d")) {
+            if (args.next()) |data_dir| {
+                options.data_dir = data_dir;
+            } else {
+                std.debug.print("data dir not provided", .{});
+                std.process.exit(1);
+            }
         } else {
             std.debug.print("unknown arg '{s}'", .{arg});
         }
@@ -119,7 +128,7 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    try Database.init(.{}, io);
+    try Database.init(.{ .backing = .{ .filesys = .{ .dir = options.data_dir } } }, io);
     defer Database.raze(io);
 
     const cache = Cache.init(a);
