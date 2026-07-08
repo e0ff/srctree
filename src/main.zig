@@ -134,9 +134,11 @@ pub fn main(init: std.process.Init) !void {
     const cache = Cache.init(a);
     defer cache.raze();
 
+    const socket_file = if (SrcConfig.global.server.?.sock) |socket| socket else "./srctree.sock";
+
     if (SrcConfig.global.server) |srv| {
         if (srv.remove_on_start) {
-            Io.Dir.cwd().deleteFile(io, "./srctree.sock") catch |err| switch (err) {
+            Io.Dir.cwd().deleteFile(io, socket_file) catch |err| switch (err) {
                 error.FileNotFound => {},
                 else => return err,
             };
@@ -167,17 +169,13 @@ pub fn main(init: std.process.Init) !void {
         .base = auth.provider(),
     };
 
-    if (SrcConfig.global.server) |srvcfg| {
-        if (srvcfg.sock) |sock| {
-            std.debug.print("sock: {s}\n", .{sock});
-        }
-    }
+    std.debug.print("sock: {s}\n", .{socket_file});
 
     Srctree.endpoints.serve(a, .{
         .mode = if (runmode == .http)
             .{ .http = .public }
         else
-            .{ .zwsgi = .{ .file = "./srctree.sock", .chmod = 0o777, .stats = true } },
+            .{ .zwsgi = .{ .file = socket_file, .chmod = 0o777, .stats = true } },
         .auth = mtls.provider(),
         .threads = 4,
         .stats = .{ .auth_mode = .sensitive },
