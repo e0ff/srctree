@@ -1,6 +1,6 @@
-server: ?Config.Server,
+server: ?Server,
 owner: ?Owner,
-repos: ?Config.Repos,
+repos: ?Repos,
 agent: ?Agent,
 notifications: ?Notifications,
 git: ?Git,
