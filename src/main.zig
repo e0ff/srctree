@@ -43,7 +43,14 @@ fn findConfig(target: []const u8) ?[]const u8 {
 
 const Options = struct {
     config_path: []const u8,
-    source_path: []const u8,
+    source_path: ?[]const u8,
+
+    pub fn default() Options {
+        return Options{
+            .config_path = "./config.ini",
+            .source_path = null,
+        };
+    }
 };
 
 pub const SrcConfig = @import("Config.zig");
@@ -56,6 +63,7 @@ const Auth = @import("Auth.zig");
 pub fn main(init: std.process.Init) !void {
     const a = init.gpa;
 
+    var options = Options.default();
     var runmode: verse.Server.RunModes = .zwsgi;
 
     var args = init.minimal.args.iterate();
@@ -71,6 +79,13 @@ pub fn main(init: std.process.Init) !void {
             runmode = .zwsgi;
         } else if (std.mem.eql(u8, arg, "http")) {
             runmode = .http;
+        } else if (std.mem.eql(u8, arg, "-c")) {
+            if (args.next()) |passed_config_file| {
+                options.config_path = passed_config_file;
+            } else {
+                std.debug.print("config file not provided", .{});
+                std.process.exit(1);
+            }
         } else {
             std.debug.print("unknown arg '{s}'", .{arg});
         }
@@ -82,9 +97,9 @@ pub fn main(init: std.process.Init) !void {
     const cwd = std.Io.Dir.cwd();
 
     var cfg_file: ?std.Io.File = null;
-    if (findConfig("./config.ini")) |cfg| {
+    if (findConfig(options.config_path)) |cfg| {
         std.debug.print("reading from '{s}'\n", .{cfg});
-        cfg_file = try cwd.openFile(io, "./config.ini", .{});
+        cfg_file = try cwd.openFile(io, options.config_path, .{});
     }
 
     var cfg_data: []u8 = &.{};
