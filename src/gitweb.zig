@@ -190,7 +190,7 @@ fn receivePackExternal(f: *Frame) Error!void {
 
     if (f.user == null) {
         // TODO visibility
-        var repo = (repos.open(rd.name, .public_only, f.io) catch
+        var repo = (Repo.openGit(rd.name, .public_only, f.io) catch
             return error.ServerFault) orelse
             return error.InvalidURI;
         repo.loadConfig(f.alloc, f.io) catch return error.ServerFault;
@@ -324,4 +324,5 @@ const Error = Router.Error;
 
 const git = @import("git.zig");
 const repos = @import("repos.zig");
+const Repo = @import("Repo.zig");
 const Config = @import("Config.zig");

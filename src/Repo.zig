@@ -2,6 +2,8 @@ git: Git.Repo,
 
 const Repo = @This();
 
+pub const Agent = @import("Repo/Agent.zig");
+
 pub var dirs: repos.Dirs = .{};
 
 pub fn init(git: Git.Repo) !Repo {
@@ -98,9 +100,45 @@ pub fn iterateAll(vis: Visibility.Select, io: Io) !Iterator {
     };
 }
 
+/// public, but use with caution, might cause side channel leakage
+pub fn isHidden(name: []const u8) bool {
+    return Vis.fromConfig(name) != .public;
+}
+
+pub fn allNames(a: Allocator, io: Io) !ArrayList([]u8) {
+    var list: std.ArrayList([]u8) = .empty;
+
+    var dir_set = try dirs.directory(.public, io);
+    defer dir_set.close(io);
+    var itr_repo = dir_set.iterate();
+
+    while (itr_repo.next(io) catch null) |dir| {
+        if (dir.kind != .directory and dir.kind != .sym_link) continue;
+        if (isHidden(dir.name)) continue;
+        try list.append(a, try a.dupe(u8, dir.name));
+    }
+    return list;
+}
+
+pub fn openGit(name: []const u8, vis: Vis.Select, io: Io) !?Git.Repo {
+    if (!Vis.fromConfig(name).isVisible(vis)) return null;
+    // TODO fromConfig may return the wrong dir
+    //var root = try dirs.directory(Vis.fromConfig(name), io);
+    var root = try dirs.directory(.public, io);
+    defer root.close(io);
+    const dir = root.openDir(io, name, .{}) catch |err| switch (err) {
+        error.FileNotFound => return null,
+        error.NotDir => return null,
+        else => return err,
+    };
+    return try Git.Repo.init(dir, io);
+}
+
 const Git = @import("git.zig");
 const repos = @import("repos.zig");
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const ArrayList = std.ArrayList;
 const Io = std.Io;
 const eql = std.mem.eql;
 const global_config = &@import("Config.zig").global;
