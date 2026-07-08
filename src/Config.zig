@@ -10,8 +10,9 @@ pub var global: Config = .empty;
 const Config = @This();
 
 pub const Server = struct {
-    sock: ?[]const u8,
+    block_scripted_traffic: bool = true,
     remove_on_start: bool = false,
+    sock: ?[]const u8,
 };
 
 pub const Owner = struct {

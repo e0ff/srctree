@@ -68,8 +68,9 @@ fn dropRequest(f: *Frame) BuildFn {
 }
 
 fn userAgentResolution(fr: *Frame) ?BuildFn {
-    const botdetect: verse.Robots = .init(fr.request);
+    if (global_config.server) |srv| if (!srv.block_scripted_traffic) return null;
     if (fr.user != null) return null;
+    const botdetect: verse.Robots = .init(fr.request);
 
     // Annoying abuse I found
     if (fr.request.accept_language.zh >= 1.0 and fr.request.accept_language.en == 0 and
@@ -280,3 +281,5 @@ const BuildFn = Router.BuildFn;
 const Delta = @import("types.zig").Delta;
 const genRules = @import("endpoints/search.zig").genRules;
 const commitFlex = @import("endpoints/commit-flex.zig").commitFlex;
+
+const global_config = &@import("Config.zig").global;
