@@ -143,8 +143,8 @@ fn sorter(_: void, l: Git.Blob, r: Git.Blob) bool {
 }
 
 fn isReadme(name: []const u8) bool {
-    if (name.len == 0) return false;
-    if (std.mem.eql(u8, name, "README.md")) return true;
+    if (eql(u8, name, "README.md")) return true;
+    if (eql(u8, name, "readme.md")) return true;
     return false;
 }
 
