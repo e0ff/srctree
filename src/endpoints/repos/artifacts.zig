@@ -9,7 +9,7 @@ pub const index = list;
 const ArtifactsHtml = T.PageData("repo/artifacts.html");
 
 fn list(f: *Frame) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.ServerFault;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
@@ -35,7 +35,7 @@ fn list(f: *Frame) Router.Error!void {
 }
 
 fn view(f: *Frame) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     _ = rd;
 }
 

@@ -17,7 +17,7 @@ const SearchReq = struct {
 const extra_lines: usize = 6;
 
 fn repoSearch(f: *Frame, count: u32) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.ServerFault;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;

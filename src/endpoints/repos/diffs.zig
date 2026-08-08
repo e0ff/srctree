@@ -81,7 +81,7 @@ fn pendingNew(f: *Frame) Error!void {
     var title: ?[]const u8 = null;
     var desc: ?[]const u8 = null;
 
-    const routing_data = RouteData.init(f.uri) orelse return error.ServerFault;
+    const routing_data = RouteData.init(f) orelse return error.ServerFault;
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     var repo = (repos.open(routing_data.name, vis, f.io) catch return error.DataInvalid) orelse return error.DataInvalid;
     repo.loadData(f.alloc, f.io) catch return error.ServerFault;
@@ -133,7 +133,7 @@ const DiffUpdateReq = struct {
 };
 
 fn updatePatch(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
 
     const delta_id = f.uri.next().?;
     const idx = isHex(delta_id) orelse return error.InvalidURI;
@@ -197,7 +197,7 @@ fn createDiffCore(rd: RouteData, req: DiffCreateReq, user: []const u8, a: Alloca
 }
 
 fn createDiff(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     if (f.request.data.post) |post| {
         const udata = post.validate(DiffCreateReq) catch return error.DataInvalid;
         const username = if (f.user) |usr|
@@ -223,7 +223,7 @@ const ErrStrs = union(enum) {
 };
 
 fn createError(f: *Frame, udata: DiffCreateReq, comptime err: ErrStrs) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
 
     const host = try (f.request.host orelse return error.DataMissing).valid();
     var page = DiffNewHtml.init(.{
@@ -249,7 +249,7 @@ fn createError(f: *Frame, udata: DiffCreateReq, comptime err: ErrStrs) Error!voi
 }
 
 fn newComment(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     const post = f.request.data.post orelse return error.DataMissing;
     const valid = post.validate(delta_shared.AddCommentReq) catch return error.DataInvalid;
     //if (valid.comment.len < 2) return f.redirect(loc, .see_other) catch unreachable;
@@ -770,7 +770,7 @@ pub fn translateComment(
 const DeltaPage = Template.PageData("delta.html");
 
 fn view(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
 
     const delta_id = f.uri.next().?;
     const idx = isHex(delta_id) orelse return error.ServerFault;
@@ -808,7 +808,7 @@ fn view(f: *Frame) Error!void {
 
 fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8) Error!void {
     // TODO remove delta_index
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
 
     if (updatePatchView(f)) |_| return f.redirect(f.uri.path, .see_other) catch unreachable;
     const patch_view_mode = updateFetchPatchView(f) catch .inlined;
@@ -937,7 +937,7 @@ const SearchReq = struct {
 };
 
 fn list(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
 
     const udata = f.request.data.query.validate(SearchReq) catch return error.DataInvalid;
     if (udata.q) |q| {

@@ -93,7 +93,7 @@ fn edit(f: *verse.Frame) Error!void {
 }
 
 fn editPost(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     var buf: [2048]u8 = undefined;
     if (f.request.data.post) |post| {
         const valid = post.validate(IssueCreateReq) catch return error.DataInvalid;
@@ -140,7 +140,7 @@ fn newPostError(_: *verse.Frame) Error!void {
 }
 
 fn newPost(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     var buf: [2048]u8 = undefined;
     if (f.request.data.post) |post| {
         const valid = post.validate(IssueCreateReq) catch return error.DataInvalid;
@@ -184,7 +184,7 @@ const RemoteData = struct {
 };
 
 fn newRemotePost(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     var buf: [2048]u8 = undefined;
     if (f.request.data.post) |post| {
         const valid = post.validate(RemoteIssueCreateReq) catch return error.DataInvalid;
@@ -198,7 +198,7 @@ fn newRemotePost(f: *verse.Frame) Error!void {
 }
 
 fn addComment(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     const post = f.request.data.post orelse return error.DataMissing;
     const valid = post.validate(delta_shared.AddCommentReq) catch return error.DataInvalid;
 
@@ -211,7 +211,7 @@ fn addComment(f: *verse.Frame) Error!void {
 const DeltaPage = T.PageData("delta.html");
 
 fn view(f: *verse.Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     const delta_id = f.uri.next().?;
     const idx = isHex(delta_id) orelse return error.ServerFault;
 
@@ -296,7 +296,7 @@ fn view(f: *verse.Frame) Error!void {
 }
 
 fn searchPage(f: *Frame, str: []const u8) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     const rules = try search.genRules(str, f.alloc);
 
     var itr = Delta.searchRepo(rd.name, rules.items, f.io);
@@ -311,7 +311,7 @@ fn searchPage(f: *Frame, str: []const u8) Error!void {
 }
 
 fn list(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     var default_search_buf: [0xFF]u8 = undefined;
     const def_search = try bufPrint(&default_search_buf, "repo:{s} is:issue is:open", .{rd.name});
     return searchPage(f, def_search);

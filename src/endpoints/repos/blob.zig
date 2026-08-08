@@ -1,17 +1,17 @@
-pub fn treeBlob(frame: *Frame) Router.Error!void {
-    const rd = RouteData.init(frame.uri) orelse return error.ServerFault;
-    _ = frame.uri.next();
+pub fn treeBlob(f: *Frame) Router.Error!void {
+    const rd = RouteData.init(f) orelse return error.ServerFault;
+    _ = f.uri.next();
 
-    const vis: Repo.Visibility.Select = if (frame.user) |_| .all else .public_only;
-    var repo = (repos.open(rd.name, vis, frame.io) catch return error.Unknown) orelse return error.ServerFault;
-    repo.loadData(frame.alloc, frame.io) catch return error.Unknown;
-    defer repo.raze(frame.alloc, frame.io);
+    const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
+    var repo = (repos.open(rd.name, vis, f.io) catch return error.Unknown) orelse return error.ServerFault;
+    repo.loadData(f.alloc, f.io) catch return error.Unknown;
+    defer repo.raze(f.alloc, f.io);
 
     const ograph: S.OpenGraph = .{
         .title = rd.name,
-        .desc = repo.description(frame.alloc, frame.io) catch |err| switch (err) {
+        .desc = repo.description(f.alloc, f.io) catch |err| switch (err) {
             error.DefaultDescription, error.NoDescription => try allocPrint(
-                frame.alloc,
+                f.alloc,
                 "An Indescribable repo with {s} commits",
                 .{"[todo count commits]"},
             ),
@@ -21,17 +21,17 @@ pub fn treeBlob(frame: *Frame) Router.Error!void {
     };
     _ = ograph;
 
-    const cmt = repo.HEAD(frame.alloc, frame.io) catch return newRepo(frame);
+    const cmt = repo.HEAD(f.alloc, f.io) catch return newRepo(f);
 
     if (rd.verb != null and rd.ref != null and isHash(rd.ref.?)) {
         const sha: Git.Sha = .init(rd.ref.?);
-        switch (repo.objects.load(sha, frame.alloc, frame.io) catch return error.InvalidURI) {
-            .commit => |c| return treeOrBlobAtRef(frame, rd, &repo, c),
+        switch (repo.objects.load(sha, f.alloc, f.io) catch return error.InvalidURI) {
+            .commit => |c| return treeOrBlobAtRef(f, rd, &repo, c),
             else => return error.DataInvalid,
         }
     }
 
-    return treeOrBlobAtRef(frame, rd, &repo, cmt);
+    return treeOrBlobAtRef(f, rd, &repo, cmt);
 }
 
 fn isHash(slice: []const u8) bool {
@@ -42,27 +42,27 @@ fn isHash(slice: []const u8) bool {
     return true;
 }
 
-fn treeOrBlobAtRef(frame: *Frame, rd: RouteData, repo: *Git.Repo, cmt: Git.Commit) Router.Error!void {
-    var files: Git.Tree = (cmt.loadTree(repo, frame.alloc, frame.io) catch return error.Unknown);
-    const verb = rd.verb orelse return treeEndpoint(frame, rd, repo, &files);
-    var path = rd.path orelse return treeEndpoint(frame, rd, repo, &files);
+fn treeOrBlobAtRef(f: *Frame, rd: RouteData, repo: *Git.Repo, cmt: Git.Commit) Router.Error!void {
+    var files: Git.Tree = (cmt.loadTree(repo, f.alloc, f.io) catch return error.Unknown);
+    const verb = rd.verb orelse return treeEndpoint(f, rd, repo, &files);
+    var path = rd.path orelse return treeEndpoint(f, rd, repo, &files);
 
     switch (verb) {
-        .blob => return blob(frame, rd, repo, files),
+        .blob => return blob(f, rd, repo, files),
         .tree => {
-            if (frame.uri.isDir()) {
-                const uri = try allocPrint(frame.alloc, "/{s}/", .{frame.uri.path});
-                return frame.redirect(uri, .permanent_redirect);
+            if (!f.uri.isDir()) {
+                const uri = try allocPrint(f.alloc, "/{s}/", .{f.uri.path});
+                return f.redirect(uri, .permanent_redirect);
             }
-            var child = files.descend(path.path[path.index..], repo, frame.alloc, frame.io) catch |err| {
+            var child = files.descend(path.path[path.index..], repo, f.alloc, f.io) catch |err| {
                 log.err("unable to descend '{s}' err {}", .{ path.path[path.index..], err });
-                return error.Unknown;
+                return error.NotFound;
             };
-            return treeEndpoint(frame, rd, repo, &child);
+            return treeEndpoint(f, rd, repo, &child);
         },
         else => {},
     }
-    return treeEndpoint(frame, rd, repo, &files);
+    return treeEndpoint(f, rd, repo, &files);
 }
 
 const BlobPage = PageData("blob.html");
@@ -182,7 +182,7 @@ fn wrapLineNumbers(a: Allocator, text: []const u8) ![]u8 {
 
 const NewRepoPage = verse.template.PageData("repo-new.html");
 fn newRepo(f: *Frame) Router.Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     f.status = .ok;
 
     //const upstream: ?S.BaseRepoHeaderHtml.Upstream = if (repo.findRemote("upstream")) |up| .{

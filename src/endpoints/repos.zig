@@ -76,30 +76,31 @@ pub const Router = struct {
         }
     };
 
-    pub fn init(uri_itr: verse.Uri) ?Router {
-        var uri = uri_itr;
+    pub fn init(frame: *const Frame) ?Router {
+        var uri = frame.uri;
         uri.index = 0;
-        _ = uri.next() orelse return null;
+        _ = uri.next() orelse return null; // route
         const name = validRepoName(uri.next()) orelse return null;
-        var verb: ?Verb = Verb.fromSlice(uri.next()) orelse return .{ .name = name };
-        var ref: ?[]const u8 = null;
-        var path: ?Path = null;
-        switch (verb.?) {
-            .commit => ref = uri.next() orelse return .{ .name = name },
-            .ref => {
-                ref = validRef(uri.next()) orelse return .{ .name = name };
-                verb = if (uri.next()) |n| Verb.fromSlice(n) else null;
-                if (uri.withoutPrefix()) |wo| path = Path.init(wo) catch unreachable;
+        const verb: Verb = Verb.fromSlice(uri.next()) orelse return .{ .name = name };
+        return switch (verb) {
+            .commit => .{
+                .name = name,
+                .ref = uri.next(),
+                .verb = verb,
+                .path = null,
             },
-            else => if (uri.withoutPrefix()) |wo| {
-                path = Path.init(wo) catch unreachable;
+            .ref => .{
+                .name = name,
+                .ref = validRef(uri.next()),
+                .verb = if (uri.next()) |n| Verb.fromSlice(n) else null,
+                .path = if (uri.withoutPrefix()) |wo| Path.init(wo) catch null else null,
             },
-        }
-        return .{
-            .name = name,
-            .verb = verb,
-            .ref = ref,
-            .path = path,
+            else => .{
+                .name = name,
+                .ref = null,
+                .verb = verb,
+                .path = if (uri.withoutPrefix()) |wo| Path.init(wo) catch null else null,
+            },
         };
     }
 
@@ -130,7 +131,7 @@ pub const Router = struct {
 };
 
 pub fn navButtons(f: *Frame) ![2]S.NavButtons {
-    const rd = RouteData.init(f.uri) orelse return error.InvalidURI;
+    const rd = RouteData.init(f) orelse return error.InvalidURI;
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     if (!rd.exists(vis, f.io)) return error.InvalidURI;
     var i_count: usize = 0;
@@ -209,7 +210,7 @@ fn useGitProto(f: *const Frame) bool {
 }
 
 pub fn router(f: *Frame) Router.RoutingError!verse.Router.BuildFn {
-    const rd = RouteData.init(f.uri) orelse return list;
+    const rd = RouteData.init(f) orelse return list;
 
     const vis: Repo.Visibility.Select = if (f.user) |_| .all else .public_only;
     if (rd.exists(vis, f.io)) {

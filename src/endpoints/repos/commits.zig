@@ -11,7 +11,7 @@ const AddComment = struct {
 };
 
 pub fn router(f: *Frame) Router.RoutingError!Router.BuildFn {
-    const rd = RouteData.init(f.uri) orelse return commitList;
+    const rd = RouteData.init(f) orelse return commitList;
     if (rd.verb != null and rd.verb.? == .commit)
         return viewCommit;
     return commitList;
@@ -168,7 +168,7 @@ pub fn viewAsPatch(f: *Frame, sha: []const u8, repo: Git.Repo) Error!void {
 }
 
 pub fn viewCommit(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
     if (rd.verb == null) return commitList(f);
 
     const sha = rd.ref orelse return error.ServerFault;
@@ -310,7 +310,7 @@ fn buildListBetween(
 }
 
 pub fn commitList(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
 
     if (f.uri.next()) |next| {
         if (!std.mem.eql(u8, next, "commits")) return error.ServerFault;
@@ -349,7 +349,7 @@ pub fn commitList(f: *Frame) Error!void {
 }
 
 pub fn commitsBefore(f: *Frame) Error!void {
-    const rd = RouteData.init(f.uri) orelse return error.ServerFault;
+    const rd = RouteData.init(f) orelse return error.ServerFault;
 
     std.debug.assert(std.mem.eql(u8, "after", f.uri.next().?));
 
