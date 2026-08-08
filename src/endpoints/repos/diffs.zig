@@ -851,7 +851,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
         _ = revi;
         var patch = try diff.patchFromGitRev(null, .current, &agent, f.io);
 
-        if (std.mem.trim(u8, diff.patch.blob, &std.ascii.whitespace).len > 0) {
+        if (trim(u8, patch.blob, &std.ascii.whitespace).len > 0) {
             patch.revision = rev;
             if (patchStruct(f.alloc, &patch, patch_view_mode)) |phtml| {
                 patch_formatted = phtml;
@@ -873,7 +873,7 @@ fn viewDiffRevision(f: *Frame, delta: *Delta, rev: ?u64, delta_index: []const u8
                 //diff.base_hash = head_commit.?.sha.text().slice();
                 diff.commit(f.io) catch return error.ServerFault;
             }
-        }
+        } else log.err("Provided patch was empty", .{});
 
         messages = try delta_shared.genThreadMessages(delta, &repo, &patch, .{
             .edit = f.user != null,
@@ -978,6 +978,7 @@ const log = std.log.scoped(.diffs);
 const allocPrint = std.fmt.allocPrint;
 const bufPrint = std.fmt.bufPrint;
 const eql = std.mem.eql;
+const trim = std.mem.trim;
 const find = std.mem.find;
 const findPos = std.mem.findPos;
 const findAnyPos = std.mem.findAnyPos;

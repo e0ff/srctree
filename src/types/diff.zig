@@ -51,6 +51,7 @@ pub fn new(delta: *Delta, author: []const u8, patch: []const u8, a: Allocator, i
         .created = Io.Clock.now(.real, io).toSeconds(),
         .updated = Io.Clock.now(.real, io).toSeconds(),
         .delta_hash = delta.hash,
+        .number = delta.index,
         .source_uri = null,
         .author = author,
         .patch = .{ .blob = patch },
