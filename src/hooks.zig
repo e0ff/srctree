@@ -16,24 +16,24 @@ pub fn main(init: std.process.Init) !u8 {
     defer stdout.flush() catch {};
 
     const env = Env.init(&init.minimal.environ, a) catch |err| {
-        std.debug.print("unable to set up hook env for '{s}' ({})\n", .{ arg0, err });
+        log.err("unable to set up hook env for '{s}' ({})", .{ arg0, err });
         return 4;
     };
     const cwd = std.Io.Dir.cwd();
 
     if (env.datadir) |datadir| {
         const dir = cwd.createDirPathOpen(io, datadir, .{ .open_options = .{ .iterate = true } }) catch {
-            std.debug.print("unable to set up hook env\n", .{});
+            log.err("unable to set up hook env", .{});
             return 4;
         };
 
         types.init(dir, io) catch {
-            std.debug.print("unable to set up hook types\n", .{});
+            log.err("unable to set up hook types", .{});
             return 4;
         };
-    } else {
-        //std.debug.print("DataDir unavailable\n", .{});
-        //return 0;
+    } else if (env.method == .http) {
+        log.err("DataDir unavailable\n", .{});
+        return 1;
     }
 
     if (endsWith(u8, arg0, "pre-receive")) {
@@ -56,22 +56,22 @@ pub fn main(init: std.process.Init) !u8 {
             update(ref, old, new, &env, a, io) catch |err| {
                 switch (err) {
                     error.UnsupportedEnv => {
-                        std.debug.print("error: Server environ not set up correctly\n", .{});
+                        log.err("error: Server environ not set up correctly", .{});
                         return 1;
                     },
                     error.NoSpaceLeft => unreachable,
                     error.NotImplemented => unreachable,
                     //error.TargetExists => {
-                    //    std.debug.print("error: Target ref already exists.\n", .{});
+                    //    log.err("error: Target ref already exists.", .{});
                     //    return 1;
                     //},
                     error.MalformedTarget => {
-                        std.debug.print("error: You are unable to push to this ref\n", .{});
+                        log.err("error: You are unable to push to this ref", .{});
                         return 1;
                     },
                     error.FSFault => unreachable,
                     error.DeltaDoesNotExist => {
-                        std.debug.print("error: Destination diff doesn't exist, or push isn't enabled for this repo/branch\n", .{});
+                        log.err("error: Destination diff doesn't exist, or push isn't enabled for this repo/branch", .{});
                         return 1;
                     },
                 }
@@ -83,8 +83,8 @@ pub fn main(init: std.process.Init) !u8 {
         procReceive(stdin, stdout, &env, a, io) catch return 1;
         return 0;
     } else {
-        std.debug.print("Unable to route hook '{s}'\n", .{arg0});
-        std.debug.print("Unable to route hook '{any}'\n", .{arg0});
+        log.err("Unable to route hook '{s}'", .{arg0});
+        log.err("Unable to route hook '{any}'", .{arg0});
         return 1;
     }
 }
@@ -103,14 +103,14 @@ pub fn preReceive(stdin: *Reader, _: *const Env) !void {
         const old = itr.next() orelse return error.InvalidReceiveLine;
         const new = itr.next() orelse return error.InvalidReceiveLine;
         const ref = itr.rest();
-        if (false) std.debug.print("line: {s} {s} {s}\n", .{ old, new, ref });
+        log.debug("line: {s} {s} {s}", .{ old, new, ref });
     } else |_| return;
 }
 
 pub fn postReceive(stdin: *Reader, _: *const Env) !void {
-    //std.debug.print("post receive\n", .{});
+    log.debug("post receive", .{});
     while (stdin.takeSentinel('\n')) |line| {
-        if (false) std.debug.print("line: {s}\n", .{line});
+        log.debug("line: {s}", .{line});
     } else |_| return;
 }
 
@@ -123,7 +123,7 @@ pub fn update(
     a: Allocator,
     io: std.Io,
 ) !void {
-    if (false) std.debug.print("update {s} {s} {s}\n", .{ ref, old_oid, target_oid });
+    log.debug("update {s} {s} {s}", .{ ref, old_oid, target_oid });
     switch (env.method) {
         .unknown => return error.UnsupportedEnv,
         .git => return error.NotImplemented,
@@ -171,6 +171,7 @@ pub fn postUpdate(_: *const Env) !void {
 
 pub const diffs = struct {
     pub fn new(
+        user: []const u8,
         env: *const Env,
         pr: ProcRecv,
         repo: *const git.Repo,
@@ -180,8 +181,7 @@ pub const diffs = struct {
         io: Io,
     ) !void {
         const cmt = try repo.commit(pr.new, a, io);
-        const user = cmt.committer.name;
-        var delta = try Delta.new(env.repo.?, std.mem.trim(u8, cmt.title, "\n "), cmt.body, user, io);
+        var delta = try Delta.new(env.repo.?, trim(u8, cmt.title, "\n "), cmt.body, user, io);
 
         var b: [512]u8 = undefined;
         const ref_head = print(&b, "refs/diffs/{}/head", .{delta.index}) catch unreachable;
@@ -253,20 +253,21 @@ pub fn procReceive(in: *Reader, out: *Writer, env: *const Env, a: Allocator, io:
     while (PktLine.read(in)) |line| switch (line) {
         .flush => break,
         .bytes => |bytes| {
-            const pr: ProcRecv = try .init(std.mem.trim(u8, bytes, "\n "));
+            const pr: ProcRecv = try .init(trim(u8, bytes, "\n "));
             if (cutPrefix(u8, pr.ref, "refs/")) |refroot| {
                 const ref = cutPrefix(u8, refroot, "heads/") orelse refroot;
                 if (cutPrefix(u8, ref, "diffs/")) |base| {
                     if (eql(u8, base, "new")) {
+                        const cmt = try repo.commit(pr.new, a, io);
+                        const user = cmt.committer.name;
                         if (!env.authenticated) {
-                            const cmt = try repo.commit(pr.new, a, io);
                             const head = try repo.HEAD(a, io);
                             if (!head.sha.eql(cmt.parent[0].?)) {
                                 try pr.nak("unauthenticated (commit history too long)", out);
                                 continue;
                             }
                         }
-                        try diffs.new(env, pr, &repo, dir, out, a, io);
+                        try diffs.new(user, env, pr, &repo, dir, out, a, io);
                         continue;
                     } else if (endsWith(u8, base, "/head")) {
                         try diffs.updateHead(pr, env.repo.?, base, dir, out, a, io);
@@ -380,6 +381,10 @@ const Env = struct {
     }
 };
 
+pub const std_options: std.Options = .{
+    .log_level = .info,
+};
+
 const std = @import("std");
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
@@ -401,3 +406,5 @@ const git = @import("git.zig");
 const PktLine = git.protocol.PktLine;
 const ProcRecv = git.protocol.ProcRecv;
 const print = std.fmt.bufPrint;
+const log = std.log.scoped(.hooks);
+const trim = std.mem.trim;

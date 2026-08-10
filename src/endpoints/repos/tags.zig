@@ -10,8 +10,8 @@ pub fn list(f: *Frame) Router.Error!void {
 
     var tags: std.ArrayList(Git.Tag) = .empty;
     for (repo.refs.map.keys(), repo.refs.map.values()) |tag_name, ref| switch (ref) {
-        .tag => |t| tags.append(f.alloc, Git.Tag.fromObject(
-            repo.objects.load(t, f.alloc, f.io) catch continue,
+        .tag => tags.append(f.alloc, Git.Tag.fromObject(
+            repo.objects.load(ref.resolve(&repo) catch continue, f.alloc, f.io) catch continue,
             f.alloc.dupe(u8, tag_name) catch unreachable,
         ) catch continue) catch unreachable,
         else => {},

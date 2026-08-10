@@ -260,12 +260,12 @@ pub fn loadRefs(self: *Repo, a: Allocator, io: Io) !void {
 pub fn ref(repo: Repo, str: []const u8) !Sha {
     const target = cutPrefix(u8, str, "refs/") orelse str;
     if (repo.refs.map.get(target)) |refr| switch (refr) {
-        .tag => @panic("not implemented"),
         .sha => |s| return s,
         .ref => |r| {
             std.debug.assert(!eql(u8, str, r));
             return repo.ref(r);
         },
+        .head, .diff, .tag => @panic("not implemented"),
         .pending => unreachable,
     };
     if (cutPrefix(u8, target, "heads/")) |cut| return repo.ref(cut);

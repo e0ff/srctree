@@ -303,8 +303,8 @@ fn repoSorter(ctx: repoctx, l: Git.Repo, r: Git.Repo) bool {
         .tag => {
             var tags_left: std.ArrayList(Git.Tag) = .empty;
             for (l.refs.map.keys(), l.refs.map.values()) |name, ref| switch (ref) {
-                .tag => |t| tags_left.append(ctx.alloc, Git.Tag.fromObject(
-                    l.objects.load(t, ctx.alloc, ctx.io) catch continue,
+                .tag => tags_left.append(ctx.alloc, Git.Tag.fromObject(
+                    l.objects.load(ref.resolve(&l) catch continue, ctx.alloc, ctx.io) catch continue,
                     ctx.alloc.dupe(u8, name) catch unreachable,
                 ) catch continue) catch unreachable,
                 else => {},
@@ -312,8 +312,8 @@ fn repoSorter(ctx: repoctx, l: Git.Repo, r: Git.Repo) bool {
 
             var tags_right: std.ArrayList(Git.Tag) = .empty;
             for (r.refs.map.keys(), r.refs.map.values()) |name, ref| switch (ref) {
-                .tag => |t| tags_right.append(ctx.alloc, Git.Tag.fromObject(
-                    r.objects.load(t, ctx.alloc, ctx.io) catch continue,
+                .tag => tags_right.append(ctx.alloc, Git.Tag.fromObject(
+                    r.objects.load(ref.resolve(&r) catch continue, ctx.alloc, ctx.io) catch continue,
                     ctx.alloc.dupe(u8, name) catch unreachable,
                 ) catch continue) catch unreachable,
                 else => {},
@@ -395,8 +395,8 @@ fn repoBlock(name: []const u8, repo: *const Git.Repo, a: Allocator, io: Io) !S.R
 
     var tag_list: std.ArrayList(Git.Tag) = .empty;
     for (repo.refs.map.keys(), repo.refs.map.values()) |tag_name, ref| switch (ref) {
-        .tag => |t| tag_list.append(a, Git.Tag.fromObject(
-            repo.objects.load(t, a, io) catch continue,
+        .tag => tag_list.append(a, Git.Tag.fromObject(
+            repo.objects.load(ref.resolve(repo) catch continue, a, io) catch continue,
             a.dupe(u8, tag_name) catch unreachable,
         ) catch continue) catch unreachable,
         else => {},

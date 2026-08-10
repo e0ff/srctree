@@ -16,18 +16,34 @@ pub const Tag = @import("git/Tag.zig");
 pub const Tree = @import("git/Tree.zig");
 
 pub const Ref = union(enum) {
-    tag: Sha,
+    diff: []const u8,
+    head: []const u8,
     ref: []const u8,
+    tag: []const u8,
+
     sha: Sha,
     pending: void,
     //missing: void,
 
     pub fn resolve(r: Ref, repo: *const Repo) !Sha {
         return switch (r) {
-            .tag => |t| t,
             .sha => |s| s,
+            .diff => |diff| try repo.ref(diff),
+            .head => |head| try repo.ref(head),
+            .tag => |tag| try repo.ref(tag),
             .ref => |ref| try repo.ref(ref),
             .pending => return error.NotImplemented,
+        };
+    }
+
+    pub fn format(r: Ref, w: *std.Io.Writer) !void {
+        return switch (r) {
+            .diff => |diff| w.print("refs/diffs/{s}", .{diff}),
+            .head => |head| w.print("refs/heads/{s}", .{head}),
+            .remote => |remt| w.print("refs/remotes/{s}", .{remt}),
+            .tag => |tag| w.print("refs/tags/{s}", .{tag}),
+            .sha => |sha| w.print("{f}", .{sha.text()}),
+            .pending => unreachable,
         };
     }
 };

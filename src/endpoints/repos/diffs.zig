@@ -550,7 +550,7 @@ fn resolveLineRefDiff(
                     else => " error",
                 };
                 var fixed_code = code[1..];
-                if (std.mem.count(u8, code[1 .. code.len - 1], "\n") > 0) {
+                if (std.mem.count(u8, code[0 .. code.len - 1], "\n") > 0) {
                     var fixed = try a.alloc(u8, code.len);
                     var i: usize = 0;
                     var slide: usize = 1;

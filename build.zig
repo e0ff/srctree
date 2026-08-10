@@ -42,10 +42,8 @@ pub fn build(b: *std.Build) void {
     // build run
     const run_cmd = b.addRunArtifact(srctree);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
-    const run_step = b.step("run", "Run the app");
+    if (b.args) |args| run_cmd.addArgs(args);
+    const run_step = b.step("run", "run srctree");
     run_step.dependOn(&run_cmd.step);
 
     // srctree tests

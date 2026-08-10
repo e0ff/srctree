@@ -13,10 +13,10 @@ pub fn list(f: *Frame) Router.Error!void {
     for (repo.refs.map.keys(), repo.refs.map.values()) |name, branch| {
         switch (branch) {
             .sha => try all_branches.append(f.alloc, .{ .name = name, .sha = branch.sha }),
-            // .head => try all_branches.append(f.alloc, .{ .name = name, .sha = branch.sha }),
+            .head => try all_branches.append(f.alloc, .{ .name = name, .sha = branch.sha }),
             .ref => {},
             .tag => {},
-            //.diff => {},
+            .diff => {},
             .pending => {},
         }
     }

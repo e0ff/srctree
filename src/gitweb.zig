@@ -25,6 +25,7 @@ fn gitHttp(f: *Frame) Error!void {
     const qstr = f.uri.query orelse &.{};
     const uri = f.uri.peek() orelse &.{};
     log.warn("uri {s} '{s}'", .{ uri, qstr });
+    // TODO eql here might be too strict
     if (eql(u8, qstr, "service=git-receive-pack") or eql(u8, uri, "git-receive-pack"))
         return receivePack(f);
 
