@@ -18,7 +18,11 @@ fn inbox(ctx: *Frame) Error!void {
 }
 
 pub fn index(ctx: *Frame) Error!void {
+    var uri = ctx.uri;
+    uri.index = 0;
+    if (eql(u8, uri.next() orelse "", "inbox")) return inbox(ctx);
     const udata = ctx.request.data.query.validate(SearchReq) catch return error.DataInvalid;
+
     const query_str = udata.q orelse "";
 
     if (cutPrefix(u8, trim(u8, query_str, " "), "repo:")) |repo| {
@@ -49,29 +53,23 @@ pub fn index(ctx: *Frame) Error!void {
 
 pub fn genRules(search_str: []const u8, a: Allocator) !ArrayList(Tsearch.Rule) {
     var rules: ArrayList(Tsearch.Rule) = .empty;
-    {
-        var itr = splitScalar(u8, search_str, ' ');
-        while (itr.next()) |r_line| {
-            var line = r_line;
-            line = std.mem.trim(u8, line, " ");
-            if (line.len == 0) continue;
-            try rules.append(a, .parse(line));
-        }
+    var itr = splitScalar(u8, search_str, ' ');
+    while (itr.next()) |r_line| {
+        var line = r_line;
+        line = trim(u8, line, " ");
+        if (line.len == 0) continue;
+        try rules.append(a, .parse(line));
     }
     return rules;
 }
 
 fn custom(f: *Frame, search_str: []const u8) Error!void {
     const rules = try genRules(search_str, f.alloc);
-    for (rules.items) |rule| {
-        log.warn("rule = {f}", .{rule});
-    }
+    for (rules.items) |rule| log.warn("rule = {f}", .{rule});
 
     var itr = Delta.search(rules.items, f.io);
 
-    try delta_shared.list(f, Delta.Iterator, &itr, try allocPrint(f.alloc, "{f}", .{
-        abx.Html{ .text = search_str },
-    }));
+    try delta_shared.list(f, Delta.Iterator, &itr, .abx(search_str));
 }
 
 const std = @import("std");
@@ -81,6 +79,7 @@ const log = std.log.scoped(.search);
 const splitScalar = std.mem.splitScalar;
 const cutPrefix = std.mem.cutPrefix;
 const trim = std.mem.trim;
+const eql = std.mem.eql;
 const findScalar = std.mem.findScalar;
 const allocPrint = std.fmt.allocPrint;
 

@@ -1,53 +1,71 @@
 pub const Specifier = enum {
-    search,
+    text,
     target,
     is,
     repo,
+    owner,
 };
 
 /// By assumption, a subject of len 0 will search across anything
-pub const Rule = union(Specifier) {
-    search: String,
-    target: struct { tag: []const u8, string: String },
-    is: String,
-    repo: String,
+pub const Rule = struct {
+    match: Match,
+    invert: bool = false,
 
-    pub const String = struct {
-        match: []const u8,
-        inverse: bool = false,
+    pub const Match = union(Specifier) {
+        text: []const u8,
+        target: struct {
+            tag: []const u8,
+            text: []const u8,
+        },
+        is: []const u8, // State,
+        repo: []const u8,
+        owner: []const u8,
     };
 
-    pub fn parse(str: []const u8) Rule {
-        if (str.len < 2) return .{ .search = .{ .match = &.{}, .inverse = false } };
-        var s = str;
-        const inverse = str[0] == '-';
-        if (inverse) s = s[1..];
+    pub const State = enum {
+        open,
+        closed,
+    };
 
-        if (indexOf(u8, s, ":")) |i| {
-            if (i == 0) return .{ .search = .{ .match = s, .inverse = inverse } };
+    pub const empty: Rule = .{
+        .match = .{ .text = "" },
+        .invert = false,
+    };
 
-            const string: String = .{ .match = s[i + 1 ..], .inverse = inverse };
-
-            const pre: []const u8 = s[0..i];
-            if (eql(u8, pre, "is")) {
-                return .{ .is = string };
-            } else if (eql(u8, pre, "repo")) {
-                return .{ .repo = string };
-            } else {
-                return .{ .target = .{ .tag = pre, .string = string } };
-            }
-        } else {
-            const string: String = .{ .match = s, .inverse = inverse };
-            return .{ .search = string };
-        }
+    pub fn text(txt: []const u8) Rule {
+        return .{ .match = .{ .text = txt } };
     }
 
-    pub fn format(rule: Rule, w: *Writer) !void {
-        switch (rule) {
-            .search => |s| try w.print("{s}{s}", .{ if (s.inverse) "!" else "", s.match }),
-            .target => |t| try w.print("{s}{s}:{s}", .{ if (t.string.inverse) "!" else "", t.tag, t.string.match }),
-            .is => |i| try w.print("{s}is:{s}", .{ if (i.inverse) "!" else "", i.match }),
-            .repo => |r| try w.print("{s}repo:{s}", .{ if (r.inverse) "!" else "", r.match }),
+    pub fn parse(str: []const u8) Rule {
+        if (str.len < 2) return .empty;
+        var s = str;
+        const invert = str[0] == '-' or str[0] == '!';
+        if (invert) s = s[1..];
+
+        if (find(u8, s, ":")) |i| {
+            if (i == 0) return .text(s);
+            const match = s[i + 1 ..];
+            const pre: []const u8 = s[0..i];
+            if (eql(u8, pre, "is")) {
+                return .{ .match = .{ .is = match }, .invert = invert };
+            } else if (eql(u8, pre, "repo")) {
+                return .{ .match = .{ .repo = match }, .invert = invert };
+            } else if (eql(u8, pre, "owner")) {
+                return .{ .match = .{ .owner = match }, .invert = invert };
+            } else {
+                return .{ .match = .{ .target = .{ .tag = pre, .text = match } }, .invert = invert };
+            }
+        } else return .{ .match = .{ .text = s }, .invert = invert };
+    }
+
+    pub fn format(r: Rule, w: *Writer) !void {
+        const prefix = if (r.invert) "!" else "";
+        switch (r.match) {
+            .text => |s| try w.print("{s}{s}", .{ prefix, s }),
+            .target => |t| try w.print("{s}{s}:{s}", .{ prefix, t.tag, t.text }),
+            .is => |i| try w.print("{s}is:{s}", .{ prefix, i }),
+            .repo => |repo| try w.print("{s}repo:{s}", .{ prefix, repo }),
+            .owner => |o| try w.print("{s}owner:{s}", .{ prefix, o }),
         }
     }
 };
@@ -55,9 +73,17 @@ pub const Rule = union(Specifier) {
 pub fn Iterator(Itr: type, Output: type) type {
     return struct {
         rules: []const Rule,
-
         // TODO better ABI
         iterable: Itr,
+        data: Data = .empty,
+
+        pub const Data = struct {
+            user: []const u8,
+
+            pub const empty: Data = .{
+                .user = &.{},
+            };
+        };
 
         const Self = @This();
 
@@ -71,65 +97,74 @@ pub fn Iterator(Itr: type, Output: type) type {
 
         fn evalRules(self: Self, target: Output) bool {
             for (self.rules) |rule| {
-                if (self.eval(rule, target)) continue;
-                return false;
+                if (self.eval(rule.match, target)) {
+                    if (rule.invert) return false;
+                } else if (!rule.invert) return false;
             }
             return true;
         }
 
         /// TODO: I think this function might overrun for some inputs
         /// TODO: add support for int types
-        fn eval(_: Self, rule: Rule, target: Output) bool {
+        fn eval(self: Self, rule: Rule.Match, target: Output) bool {
+            log.debug("eval rule {any}", .{rule});
             if (comptime std.meta.hasMethod(Output, "searchEval")) {
                 return target.searchEval(rule);
             }
 
             switch (rule) {
-                .is => |is| {
-                    if (eql(u8, is.match, "diff")) {
-                        if (target.attach == .diff) return true;
-                    } else if (eql(u8, is.match, "issue")) {
-                        if (target.attach == .issue) return true;
-                        // TODO better hack
-                        if (target.attach == .remote) return true;
-                    } else if (eql(u8, is.match, "open")) {
-                        return target.state.isOpen();
-                    } else if (eql(u8, is.match, "closed")) {
-                        return target.state.closed;
-                    } else if (eql(u8, is.match, "draft")) {
-                        return target.state.draft;
-                    } else {
-                        if (target.attach == .nos) return true;
-                    }
+                .is => |is| if (eql(u8, is, "diff")) {
+                    if (target.attach == .diff) return true;
+                    return false;
+                } else if (eql(u8, is, "issue")) {
+                    if (target.attach == .issue) return true;
+                    // TODO better hack
+                    if (target.attach == .remote) return true;
+                    return false;
+                } else if (eql(u8, is, "open")) {
+                    log.debug("eval rule open {}", .{target.state.isOpen()});
+                    return target.state.isOpen();
+                } else if (eql(u8, is, "closed")) {
+                    return target.state.closed;
+                } else if (eql(u8, is, "draft")) {
+                    return target.state.draft;
+                } else {
+                    if (target.attach == .nos) return true;
                     return false;
                 },
-                .repo => |repo| return eql(u8, repo.match, target.repo),
-                .target => |trgt| {
-                    inline for (comptime std.meta.fieldNames(Output)) |name| {
-                        if (eql(u8, trgt.tag, name)) {
-                            if (@TypeOf(@field(target, name)) == []const u8) {
-                                if (indexOf(u8, @field(target, name), trgt.string.match)) |_| {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                    return false;
-                },
-                .search => |any| {
-                    inline for (comptime std.meta.fieldNames(Output)) |name| {
+                .repo => |repo| return eql(u8, repo, target.repo),
+                .target => |trgt| inline for (comptime std.meta.fieldNames(Output)) |name| {
+                    if (eql(u8, trgt.tag, name)) {
                         if (@TypeOf(@field(target, name)) == []const u8) {
-                            if (indexOf(u8, @field(target, name), any.match)) |_| {
+                            if (find(u8, @field(target, name), trgt.text)) |_| {
                                 return true;
                             }
                         }
                     }
-                    return false;
+                } else return false,
+                .text => |any| inline for (comptime std.meta.fieldNames(Output)) |name| {
+                    if (@TypeOf(@field(target, name)) == []const u8) {
+                        if (find(u8, @field(target, name), any)) |_| {
+                            return true;
+                        }
+                    }
+                } else return false,
+                .owner => |owner| if (@hasField(Output, "owner")) {
+                    log.debug("eval rule owner '{s}' '{s}'", .{ owner, self.data.user });
+                    if (eql(u8, owner, "me") and eql(u8, self.data.user, target.owner))
+                        return true
+                    else
+                        return eql(u8, self.data.user, target.owner);
+                } else {
+                    log.debug(@typeName(Output) ++ " has no owner [default true]", .{});
+                    return true;
                 },
             }
         }
 
-        pub fn raze(_: Self) void {}
+        pub fn raze(_: Self) void {
+            comptime unreachable;
+        }
     };
 }
 
@@ -164,11 +199,12 @@ const Allocator = std.mem.Allocator;
 const fs = std.fs;
 const Io = std.Io;
 const Writer = Io.Writer;
-const lastIndexOf = std.mem.lastIndexOf;
-const indexOf = std.mem.indexOf;
+const findLast = std.mem.findLast;
+const find = std.mem.find;
 const endsWith = std.mem.endsWith;
 const cutSuffix = std.mem.cutSuffix;
 const eql = std.mem.eql;
 const parseInt = std.fmt.parseInt;
 const bufPrint = std.fmt.bufPrint;
 const endian = builtin.cpu.arch.endian();
+const log = std.log.scoped(.types_search);

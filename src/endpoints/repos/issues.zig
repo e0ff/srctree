@@ -1,8 +1,6 @@
 pub const verse_name = .issues;
 
-pub const verse_aliases = .{
-    .issue,
-};
+pub const verse_aliases = .{.issue};
 
 pub const verse_router: Router.RouteFn = router;
 
@@ -295,9 +293,11 @@ fn view(f: *verse.Frame) Error!void {
     try f.sendPage(&page);
 }
 
-fn searchPage(f: *Frame, str: []const u8) Error!void {
+fn searchPage(f: *Frame, str: abx.Html) Error!void {
     const rd = RouteData.init(f) orelse return error.ServerFault;
-    const rules = try search.genRules(str, f.alloc);
+    const raw_str = str.text;
+
+    const rules = try search.genRules(raw_str, f.alloc);
 
     var itr = Delta.searchRepo(rd.name, rules.items, f.io);
 
@@ -314,14 +314,14 @@ fn list(f: *Frame) Error!void {
     const rd = RouteData.init(f) orelse return error.ServerFault;
     var default_search_buf: [0xFF]u8 = undefined;
     const def_search = try bufPrint(&default_search_buf, "repo:{s} is:issue is:open", .{rd.name});
-    return searchPage(f, def_search);
+    return searchPage(f, .safe(def_search));
 }
 
 fn isearch(f: *Frame) Error!void {
     const udata = f.request.data.query.validate(struct { q: []const u8 }) catch return error.DataInvalid;
     if (udata.q.len == 0) return list(f);
-    std.debug.print("q {s}\n", .{udata.q});
-    return searchPage(f, udata.q);
+    log.warn("issue search q {s}\n", .{udata.q});
+    return searchPage(f, .abx(udata.q));
 }
 
 pub const RemoteForge = enum {

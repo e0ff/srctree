@@ -22,7 +22,6 @@ pub fn index(ctx: *Frame) Error!void {
                 dom.push(html.text("Upstream: "));
 
                 const purl = try allocPrint(ctx.alloc, "{f}", .{std.fmt.alt(remote, .formatLink)});
-                std.debug.print("url: {s}\n", .{purl});
                 dom.dupe(html.anch(&.{.text(purl)}, &.{.href(purl)}));
                 dom = dom.close();
             }

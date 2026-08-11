@@ -954,10 +954,8 @@ fn list(f: *Frame) Error!void {
     const rules = try search.genRules(udata.q orelse "is:diff", f.alloc);
     var itr = Delta.searchRepo(rd.name, rules.items, f.io);
     var default_search_buf: [0xFF]u8 = undefined;
-    const search_str = if (udata.q) |q|
-        allocPrint(f.alloc, "{f}", .{abx.Html.abx(q)}) catch unreachable
-    else
-        try bufPrint(&default_search_buf, "repo:{s} is:diff", .{rd.name});
+    const default_search = try bufPrint(&default_search_buf, "repo:{s} is:diff", .{rd.name});
+    const search_str: abx.Html = if (udata.q) |q| .abx(q) else .safe(default_search);
 
     var body_header: S.BodyHeaderHtml = .{ .nav = .{
         .nav_buttons = &(endpt_repos.navButtons(f) catch unreachable),

@@ -156,8 +156,13 @@ fn builder(fr: *Frame, call: BuildFn) void {
     }
 
     var inbox_count: usize = 0;
-    if (genRules("is:open", fr.alloc)) |rules| {
+    const search_str = if (fr.user) |_|
+        "is:open owner:me"
+    else
+        "is:open";
+    if (genRules(search_str, fr.alloc)) |rules| {
         var search_results = Delta.search(rules.items, fr.io);
+        search_results.data = if (fr.user) |usr| .{ .user = usr.username orelse &.{} } else .empty;
         while (search_results.next(fr.alloc, fr.io)) |dlt| {
             inbox_count +|= 1;
             dlt.raze(fr.alloc);

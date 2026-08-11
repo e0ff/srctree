@@ -96,7 +96,7 @@ pub fn deltaList(d: Delta, comments: CommentsMeta, a: Allocator) !S.DeltaListHtm
     };
 }
 
-pub fn list(f: *Frame, Itr: type, itr: *search.Iterator(Itr, Delta), search_str: []const u8) RouterError!void {
+pub fn list(f: *Frame, Itr: type, itr: *search.Iterator(Itr, Delta), search_str: abx.Html) RouterError!void {
     var d_list: ArrayList(DeltaList) = .empty;
     while (itr.next(f.alloc, f.io)) |deltaC| {
         var d = deltaC;
@@ -112,12 +112,14 @@ pub fn list(f: *Frame, Itr: type, itr: *search.Iterator(Itr, Delta), search_str:
         .title = bufPrint(&og_title_b, "{} open issues", .{d_list.items.len}) catch unreachable,
     } };
 
+    var b: [2048]u8 = undefined;
+
     var page = DeltaListHtml.init(.{
         .meta_head = meta_head,
         .body_header = f.response_data.get(S.BodyHeaderHtml).?.*,
         //.search_action = uri_base,
         .delta_list = try d_list.toOwnedSlice(f.alloc),
-        .search = search_str,
+        .search = try bufPrint(&b, "{f}", .{search_str}),
     });
 
     try f.sendPage(&page);

@@ -5,6 +5,7 @@ repo: []const u8,
 title: []const u8,
 message: []const u8,
 author: ?[]const u8 = null,
+//owner: []const u8 = &.{},
 thread_id: usize = 0,
 tags_id: usize = 0,
 
