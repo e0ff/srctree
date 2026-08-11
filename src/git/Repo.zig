@@ -228,7 +228,9 @@ pub fn loadRefs(self: *Repo, a: Allocator, io: Io) !void {
                     a.free(name);
             } else if (cutPrefix(u8, next.path, "tags/")) |ref_name| {
                 if (find(u8, sha_txt, "ref: ")) |_| continue;
-                const sha: Sha = .init(sha_txt);
+                //const sha: Sha = .init(sha_txt);
+                // TODO leaks
+                const sha: []const u8 = try a.dupe(u8, sha_txt);
                 const name = try a.dupe(u8, ref_name);
                 if (try local.map.fetchPut(a, name, .{ .tag = sha })) |_|
                     a.free(name);
