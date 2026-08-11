@@ -139,7 +139,7 @@ pub fn navButtons(f: *Frame) ![2]S.NavButtons {
     var itr: Delta.RepoIterator = .init(rd.name, f.io);
     while (itr.next(f.alloc, f.io)) |dlt| {
         defer dlt.raze(f.alloc);
-        if (dlt.state.closed or dlt.state.draft or dlt.state.embargoed) continue;
+        if (!dlt.state.isOpen()) continue;
         switch (dlt.attach) {
             .diff => d_count += 1,
             .issue => i_count += 1,
