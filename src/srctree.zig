@@ -49,12 +49,12 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
     const botdetect: verse.Robots = .init(fr.request);
 
     // Annoying abuse I found
-    if (fr.request.accept_language.zh >= 1.0 and fr.request.accept_language.en == 0 and
-        fr.request.accept_encoding.gzip == true and
-        fr.request.accept_encoding.br == false and fr.request.accept_encoding.zstd == false)
-    {
-        return dropRequest(fr);
-    }
+    //if (fr.request.accept_language.zh >= 1.0 and fr.request.accept_language.en == 0 and
+    //    fr.request.accept_encoding.gzip == true and
+    //    fr.request.accept_encoding.br == false and fr.request.accept_encoding.zstd == false)
+    //{
+    //    return dropRequest(fr);
+    //}
 
     fr.dumpDebugData(.{});
     if (fr.request.user_agent) |*ua| {
@@ -116,7 +116,11 @@ fn userAgentResolution(fr: *Frame) ?BuildFn {
                     return dropRequest(fr);
 
                 const bads = [_][]const u8{
+                    \\"Not;A=Brand";v="8"
+                    ,
                     \\"Chromium";v="143", "Google Chrome";v="143", "Not_A Brand";v="99"
+                    ,
+                    \\"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"
                     ,
                     \\"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"
                     ,
