@@ -20,8 +20,10 @@ pub fn index(ctx: *Frame) Error!void {
             if (remote.url) |_| {
                 dom = dom.open(html.h3(&.{}, &.{.class("upstream")}));
                 dom.push(html.text("Upstream: "));
+
                 const purl = try allocPrint(ctx.alloc, "{f}", .{std.fmt.alt(remote, .formatLink)});
-                dom.push(html.anch(&.{.text(purl)}, &.{.href(purl)}));
+                std.debug.print("url: {s}\n", .{purl});
+                dom.dupe(html.anch(&.{.text(purl)}, &.{.href(purl)}));
                 dom = dom.close();
             }
         }
