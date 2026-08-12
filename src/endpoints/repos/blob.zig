@@ -74,7 +74,7 @@ fn blob(f: *Frame, rd: RouteData, repo: *Git.Repo, tree: Git.Tree) Router.Error!
     const blob_path = path_itr.path[0..path_itr.start_index];
     const blb = tree.descendBlob(path.path[path.index..], repo, f.alloc, f.io) catch |err| {
         log.err("unable to descend to blob {}", .{err});
-        return error.ServerFault;
+        return error.NotFound;
     };
 
     var resolve = repo.loadBlob(blb.sha, f.alloc, f.io) catch return error.ServerFault;
